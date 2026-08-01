@@ -214,7 +214,7 @@ main()
   .catch(async (err) => {
     console.error(err);
     try {
-      await setStatus("error", { error: String((err as Error).message ?? err), finishedAt: new Date() });
+      await setStatus("error", { error: String((err as Error).stack ?? err), finishedAt: new Date() });
     } catch (e) {
       console.error("failed to record error status", e);
     }
