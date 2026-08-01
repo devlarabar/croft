@@ -54,7 +54,11 @@ const reportToolDef = {
           properties: {
             step: { type: "string" },
             status: { type: "string", enum: ["pass", "fail", "not_reached"] },
-            notes: { type: "string" },
+            notes: {
+              type: "string",
+              description:
+                "Omit unless there is something non-obvious to say (e.g. why a step failed or was not reached, or an unexpected observation). Never restate that the step worked. Keep it to one short sentence.",
+            },
           },
           required: ["step", "status"],
         },

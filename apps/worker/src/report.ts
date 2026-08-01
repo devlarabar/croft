@@ -27,7 +27,7 @@ export function formatComment(opts: {
     );
   }
   if (opts.report) {
-    lines.push(opts.report.summary, "");
+    if (!opts.report.steps.length) lines.push(opts.report.summary, "");
     if (opts.report.steps.length) {
       lines.push("| Step | Result | Notes |", "| --- | --- | --- |");
       for (const s of opts.report.steps) {
