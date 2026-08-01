@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import {
   authorizeUrl,
   db,
+  decrypt,
   encrypt,
   exchangeCode,
   generatePkce,
@@ -123,6 +124,31 @@ app.post("/runs/:id/retry", async (c) => {
   });
   if (!result.started) return c.redirect(`/new?error=${encodeURIComponent(result.reason!)}`);
   return c.redirect("/runs");
+});
+
+// TEMP diagnostic: which credential rows decrypt under this instance's key.
+// Exposes only metadata + a boolean, never plaintext. Remove once diagnosed.
+app.get("/credcheck", async (c) => {
+  const rows = await db.select().from(schema.credentials).orderBy(desc(schema.credentials.createdAt));
+  const cfg = await getConfig();
+  return c.json(
+    rows.map((r) => {
+      let decrypts = true;
+      try {
+        decrypt(r.encrypted);
+      } catch {
+        decrypts = false;
+      }
+      return {
+        id: r.id,
+        providerId: r.providerId,
+        kind: r.kind,
+        createdAt: r.createdAt,
+        decrypts,
+        active: cfg.activeModel?.credentialId === r.id,
+      };
+    }),
+  );
 });
 
 // TEMP diagnostic: runtime key fingerprint (not the key). Remove once diagnosed.
