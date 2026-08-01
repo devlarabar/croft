@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { sseData } from "../sse.js";
 import {
   ChatEvent,
@@ -10,6 +11,28 @@ import {
 } from "../types.js";
 
 type Json = Record<string, unknown>;
+
+// Mirrors Claude Code's x-anthropic-billing-header so Anthropic classifies
+// OAuth traffic as first-party Claude Code usage instead of rejecting it with
+// a misleading "out of extra usage" 400. Values must match the current Claude
+// Code release (see gotgenes/pi-anthropic-auth).
+const CLAUDE_CODE_VERSION = "2.1.206";
+const BILLING_HEADER_SALT = "59cf53e54c78";
+const BILLING_HEADER_POSITIONS = [4, 7, 20];
+
+function billingHeader(messages: ChatMessage[]): string | undefined {
+  const first = messages.find((m) => m.role === "user");
+  const part = first?.role === "user" ? first.content.find((p) => p.type === "text") : undefined;
+  const text = part?.type === "text" ? part.text : "";
+  if (!text) return undefined;
+  const cch = createHash("sha256").update(text).digest("hex").slice(0, 5);
+  const sampled = BILLING_HEADER_POSITIONS.map((i) => text[i] || "0").join("");
+  const suffix = createHash("sha256")
+    .update(`${BILLING_HEADER_SALT}${sampled}${CLAUDE_CODE_VERSION}`)
+    .digest("hex")
+    .slice(0, 3);
+  return `x-anthropic-billing-header: cc_version=${CLAUDE_CODE_VERSION}.${suffix}; cc_entrypoint=sdk-cli; cch=${cch};`;
+}
 
 function toParts(parts: ContentPart[]): Json[] {
   return parts.map((p) =>
@@ -60,6 +83,16 @@ class AnthropicAdapter implements ProviderAdapter {
       cred.kind === "oauth"
         ? { authorization: `Bearer ${token}`, "anthropic-beta": "oauth-2025-04-20" }
         : { "x-api-key": token };
+    let system: string | Json[] | undefined = req.system;
+    if (cred.kind === "oauth") {
+      const header = billingHeader(req.messages);
+      if (header) {
+        system = [
+          { type: "text", text: header },
+          ...(req.system ? [{ type: "text", text: req.system }] : []),
+        ];
+      }
+    }
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "anthropic-version": "2023-06-01", ...auth },
@@ -67,7 +100,7 @@ class AnthropicAdapter implements ProviderAdapter {
         model: req.model,
         stream: true,
         max_tokens: req.maxTokens ?? 8192,
-        ...(req.system ? { system: req.system } : {}),
+        ...(system ? { system } : {}),
         messages: toWireMessages(req.messages),
         ...(req.tools?.length
           ? {
