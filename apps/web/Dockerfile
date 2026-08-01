@@ -20,6 +20,7 @@ COPY apps/web/package.json apps/web/
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 COPY --from=build /app/packages/core/dist packages/core/dist
 COPY --from=build /app/apps/web/dist apps/web/dist
+COPY apps/web/public apps/web/public
 ENV NODE_ENV=production PORT=3000
 EXPOSE 3000
 CMD ["node", "apps/web/dist/index.js"]

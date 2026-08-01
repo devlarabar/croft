@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { serve } from "@hono/node-server";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -53,6 +54,8 @@ app.onError((err, c) => {
 
 // Public endpoints; everything else requires the dashboard session.
 app.post("/api/webhooks/github", handleWebhook);
+const favicon = readFileSync(new URL("../public/favicon.png", import.meta.url));
+app.get("/favicon.ico", (c) => c.body(favicon, 200, { "Content-Type": "image/png" }));
 app.get("/login", (c) => {
   const state = newState();
   setOAuthState(c, { provider: "github-login", state, verifier: "" });
