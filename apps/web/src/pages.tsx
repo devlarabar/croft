@@ -4,6 +4,12 @@ import type { ActiveModel, Config, PreviewLogin, ProviderAdapter, RunStatus, sch
 type Run = typeof schema.runs.$inferSelect;
 type CredentialRow = typeof schema.credentials.$inferSelect;
 
+// DD/MM/YYYY HH:MM
+function fmtDate(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
 const CSS = `
 body { font-family: system-ui, sans-serif; margin: 0; color: #1a1a1a; }
 nav { background: #14532d; padding: 0.6rem 1rem; }
@@ -179,7 +185,7 @@ export function ModelsPage(props: {
           <select name="credentialId">
             {props.creds.map((c) => (
               <option value={c.id} selected={props.active?.credentialId === c.id}>
-                {c.providerId} {c.kind} ({c.id.slice(0, 8)})
+                {c.providerId} {c.kind} ({c.id.slice(0, 8)}) — {fmtDate(c.createdAt)}
               </option>
             ))}
           </select>{" "}
