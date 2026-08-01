@@ -125,6 +125,11 @@ app.post("/runs/:id/retry", async (c) => {
   return c.redirect("/runs");
 });
 
+// TEMP diagnostic: runtime key fingerprint (not the key). Remove once diagnosed.
+app.get("/keyfp", (c) =>
+  c.text(createHash("sha256").update(process.env.TOKEN_ENC_KEY!).digest("hex").slice(0, 8)),
+);
+
 app.get("/models", async (c) => {
   const cfg = await getConfig();
   const creds = await db.select().from(schema.credentials).orderBy(desc(schema.credentials.createdAt));
