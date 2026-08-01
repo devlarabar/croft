@@ -152,7 +152,9 @@ app.get("/oauth/start", (c) => {
   const provider = getProvider(c.req.query("provider") ?? "");
   if (!provider.oauth) return c.text("provider has no oauth", 400);
   const pkce = generatePkce();
-  const state = newState();
+  // Anthropic's authorize endpoint rejects the flow with "Invalid request
+  // format" unless state is the PKCE verifier (matches pi and Claude Code).
+  const state = pkce.verifier;
   setOAuthState(c, { provider: provider.id, state, verifier: pkce.verifier });
   const url = authorizeUrl(provider.oauth, pkce.challenge, state);
   if (provider.oauth.codePaste) {
