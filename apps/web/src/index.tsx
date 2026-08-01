@@ -110,6 +110,20 @@ app.post("/runs", async (c) => {
   return c.redirect("/runs");
 });
 
+app.post("/runs/:id/retry", async (c) => {
+  const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, c.req.param("id")));
+  if (!run) return c.notFound();
+  if (run.status !== "failed" && run.status !== "error") return c.text("run is not failed", 400);
+  const result = await startRun({
+    repo: run.repo,
+    prNumber: run.prNumber,
+    mode: run.mode,
+    previewUrl: run.previewUrl ?? undefined,
+  });
+  if (!result.started) return c.redirect(`/new?error=${encodeURIComponent(result.reason!)}`);
+  return c.redirect("/runs");
+});
+
 app.get("/models", async (c) => {
   const cfg = await getConfig();
   const creds = await db.select().from(schema.credentials).orderBy(desc(schema.credentials.createdAt));

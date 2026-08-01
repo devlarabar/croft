@@ -78,6 +78,11 @@ export function RunsPage({ runs }: { runs: Run[] }) {
             <td>{r.finishedAt?.toISOString().slice(0, 16).replace("T", " ") ?? ""}</td>
             <td>
               <a href={`/runs/${r.id}`}>video</a>
+              {r.status === "failed" || r.status === "error" ? (
+                <form method="post" action={`/runs/${r.id}/retry`} style="display:inline;margin-left:0.5rem">
+                  <button>Retry</button>
+                </form>
+              ) : null}
             </td>
           </tr>
         ))}
