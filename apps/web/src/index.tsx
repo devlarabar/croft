@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { serve } from "@hono/node-server";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
@@ -277,4 +278,8 @@ app.post("/settings", async (c) => {
 });
 
 const port = Number(process.env.PORT ?? 3000);
-serve({ fetch: app.fetch, port }, () => console.log(`croft web listening on :${port}`));
+serve({ fetch: app.fetch, port }, () => {
+  console.log(`croft web listening on :${port}`);
+  // TEMP diagnostic: compare against the worker's boot log.
+  console.log("TOKEN_ENC_KEY fp", createHash("sha256").update(process.env.TOKEN_ENC_KEY!).digest("hex").slice(0, 8));
+});
