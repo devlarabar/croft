@@ -53,11 +53,16 @@ const reportToolDef = {
           type: "object",
           properties: {
             step: { type: "string" },
-            status: { type: "string", enum: ["pass", "fail", "not_reached"] },
+            status: {
+              type: "string",
+              enum: ["pass", "fail", "not_reached"],
+              description:
+                "fail = the app misbehaved when the step was performed. Steps that could not be performed (missing tool, environment limitation) are not_reached, never fail.",
+            },
             notes: {
               type: "string",
               description:
-                "Omit unless there is something non-obvious to say (e.g. why a step failed or was not reached, or an unexpected observation). Never restate that the step worked. Keep it to one short sentence.",
+                "What you observed, in one concise sentence. No filler like 'successfully' and no restating the step text.",
             },
           },
           required: ["step", "status"],
