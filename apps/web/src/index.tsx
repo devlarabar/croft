@@ -126,8 +126,8 @@ app.post("/runs/:id/retry", async (c) => {
   return c.redirect("/runs");
 });
 
-// TEMP diagnostic: which credential rows decrypt under this instance's key.
-// Exposes only metadata + a boolean, never plaintext. Remove once diagnosed.
+// Diagnostic: which credential rows decrypt under this instance's key.
+// Exposes only metadata + a boolean, never plaintext.
 app.get("/credcheck", async (c) => {
   const rows = await db.select().from(schema.credentials).orderBy(desc(schema.credentials.createdAt));
   const cfg = await getConfig();
@@ -151,7 +151,7 @@ app.get("/credcheck", async (c) => {
   );
 });
 
-// TEMP diagnostic: runtime key fingerprint (not the key). Remove once diagnosed.
+// Diagnostic: runtime key fingerprint (not the key), for comparison with the worker's boot log.
 app.get("/keyfp", (c) =>
   c.text(createHash("sha256").update(process.env.TOKEN_ENC_KEY!).digest("hex").slice(0, 8)),
 );
@@ -311,6 +311,6 @@ app.post("/settings", async (c) => {
 const port = Number(process.env.PORT ?? 3000);
 serve({ fetch: app.fetch, port }, () => {
   console.log(`croft web listening on :${port}`);
-  // TEMP diagnostic: compare against the worker's boot log.
+  // Diagnostic: compare against the worker's boot log and GET /keyfp.
   console.log("TOKEN_ENC_KEY fp", createHash("sha256").update(process.env.TOKEN_ENC_KEY!).digest("hex").slice(0, 8));
 });

@@ -69,7 +69,7 @@ async function setStatus(status: RunStatus, patch: Partial<typeof schema.runs.$i
 }
 
 async function main() {
-  // TEMP diagnostic: compare against the web app's boot log.
+  // Diagnostic: compare against the web app's GET /keyfp.
   console.log("TOKEN_ENC_KEY fp", createHash("sha256").update(process.env.TOKEN_ENC_KEY!).digest("hex").slice(0, 8));
   const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, RUN_ID));
   if (!run) throw new Error(`run ${RUN_ID} not found`);
