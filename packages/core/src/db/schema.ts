@@ -1,0 +1,105 @@
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+export type RunStatus =
+  | "queued"
+  | "starting"
+  | "running"
+  | "passed"
+  | "failed"
+  | "cap_hit"
+  | "error";
+
+export type RunMode = "test" | "review";
+
+export interface StepResult {
+  step: string;
+  status: "pass" | "fail" | "not_reached";
+  notes?: string;
+}
+
+export interface RunReport {
+  summary: string;
+  steps: StepResult[];
+}
+
+// UUID ids: artifact keys are `<runId>/<filename>` on a public-read bucket,
+// so ids must be unguessable.
+export const runs = pgTable("runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  repo: text("repo").notNull(), // "owner/name"
+  prNumber: integer("pr_number").notNull(),
+  mode: text("mode").$type<RunMode>().notNull(),
+  status: text("status").$type<RunStatus>().notNull().default("queued"),
+  previewUrl: text("preview_url"),
+  providerId: text("provider_id").notNull(),
+  model: text("model").notNull(),
+  credentialId: uuid("credential_id").notNull(),
+  report: jsonb("report").$type<RunReport>(),
+  error: text("error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  finishedAt: timestamp("finished_at", { withTimezone: true }),
+});
+
+export const events = pgTable(
+  "events",
+  {
+    runId: uuid("run_id").notNull(),
+    seq: integer("seq").notNull(),
+    type: text("type").notNull(),
+    payload: jsonb("payload").notNull(),
+    artifactKey: text("artifact_key"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.runId, t.seq] })],
+);
+
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  deliveryId: text("delivery_id").primaryKey(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type CredentialKind = "api_key" | "oauth";
+
+export const credentials = pgTable("credentials", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  providerId: text("provider_id").notNull(),
+  kind: text("kind").$type<CredentialKind>().notNull(),
+  // AES-256-GCM ciphertext: the API key, or JSON {accessToken, refreshToken}.
+  encrypted: text("encrypted").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export interface ActiveModel {
+  providerId: string;
+  model: string;
+  credentialId: string;
+}
+
+export interface PreviewLogin {
+  loginUrl?: string;
+  username: string;
+  encryptedPassword: string;
+}
+
+export const config = pgTable("config", {
+  id: integer("id").primaryKey().default(1),
+  activeModel: jsonb("active_model").$type<ActiveModel>(),
+  webhooksEnabled: boolean("webhooks_enabled").notNull().default(false),
+  repos: jsonb("repos").$type<string[]>().notNull().default([]),
+  allowedUsers: jsonb("allowed_users").$type<string[]>().notNull().default([]),
+  previewLogins: jsonb("preview_logins")
+    .$type<Record<string, PreviewLogin>>()
+    .notNull()
+    .default({}),
+});

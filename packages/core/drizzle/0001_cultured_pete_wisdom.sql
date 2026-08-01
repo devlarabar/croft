@@ -1,0 +1,1 @@
+ALTER TABLE "runs" ADD COLUMN "credential_id" uuid NOT NULL;

@@ -1,0 +1,46 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGISTRY: rg.fr-par.scw.cloud/croft
+  REGION: fr-par
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Scaleway registry
+        run: echo "${{ secrets.SCW_SECRET_KEY }}" | docker login rg.fr-par.scw.cloud -u nologin --password-stdin
+
+      - name: Build & push web image
+        run: |
+          docker build --platform linux/amd64 -f apps/web/Dockerfile -t $REGISTRY/web:${{ github.sha }} .
+          docker push $REGISTRY/web:${{ github.sha }}
+
+      - name: Build & push worker image
+        run: |
+          docker build --platform linux/amd64 -f apps/worker/Dockerfile -t $REGISTRY/worker:${{ github.sha }} .
+          docker push $REGISTRY/worker:${{ github.sha }}
+
+      - name: Deploy web container
+        run: |
+          curl -fsS -X PATCH \
+            -H "X-Auth-Token: ${{ secrets.SCW_SECRET_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"registry_image": "'"$REGISTRY"'/web:${{ github.sha }}", "redeploy": true}' \
+            "https://api.scaleway.com/containers/v1beta1/regions/$REGION/containers/${{ secrets.SCW_CONTAINER_ID }}"
+
+      # Unique tag per build: Scaleway doesn't guarantee :latest is re-resolved
+      # on each job run.
+      - name: Update worker job definition image
+        run: |
+          curl -fsS -X PATCH \
+            -H "X-Auth-Token: ${{ secrets.SCW_SECRET_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{"image_uri": "'"$REGISTRY"'/worker:${{ github.sha }}"}' \
+            "https://api.scaleway.com/serverless-jobs/v1alpha1/regions/$REGION/job-definitions/${{ secrets.SCW_JOB_DEFINITION_ID }}"
