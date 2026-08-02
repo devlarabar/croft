@@ -3,7 +3,7 @@ dist/
 .pnpm-store/
 pnpm-store/
 .env
-.env.*
+.env.production
 *.pem
 *.tsbuildinfo
 .DS_Store
