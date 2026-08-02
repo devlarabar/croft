@@ -10,38 +10,32 @@ function fmtDate(d: Date): string {
   return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 }
 
-const CSS = `
-body { font-family: system-ui, sans-serif; margin: 0; color: #1a1a1a; }
-nav { background: #14532d; padding: 0.6rem 1rem; }
-nav a { color: #ecfdf5; margin-right: 1rem; text-decoration: none; font-weight: 500; }
-main { max-width: 60rem; margin: 1.5rem auto; padding: 0 1rem; }
-table { border-collapse: collapse; width: 100%; }
-th, td { text-align: left; padding: 0.4rem 0.6rem; border-bottom: 1px solid #ddd; }
-input, select, textarea, button { font: inherit; padding: 0.35rem 0.5rem; margin: 0.15rem 0; }
-button { cursor: pointer; background: #14532d; color: white; border: none; border-radius: 4px; padding: 0.45rem 0.9rem; }
-button.danger { background: #991b1b; }
-fieldset { border: 1px solid #ccc; border-radius: 6px; margin-bottom: 1rem; }
-.status-passed { color: #15803d; } .status-failed, .status-error { color: #b91c1c; }
-.status-running, .status-starting, .status-queued { color: #b45309; } .status-cap_hit { color: #7c3aed; }
-video { max-width: 100%; }
-pre { background: #f5f5f5; padding: 0.8rem; overflow-x: auto; white-space: pre-wrap; }
-`;
+const NAV = [
+  ["/runs", "Runs"],
+  ["/new", "New run"],
+  ["/models", "Models"],
+  ["/chat", "Chat"],
+  ["/export", "Export & clean up"],
+  ["/settings", "Settings"],
+];
 
 export function Layout(props: { title: string; children: Child }) {
   return (
     <html>
       <head>
         <title>{props.title} — Croft</title>
-        <style>{CSS}</style>
+        <link rel="stylesheet" href="/styles.css" />
       </head>
       <body>
         <nav>
-          <a href="/runs">Runs</a>
-          <a href="/new">New run</a>
-          <a href="/models">Models</a>
-          <a href="/chat">Chat</a>
-          <a href="/export">Export &amp; clean up</a>
-          <a href="/settings">Settings</a>
+          <a class="brand" href="/runs">
+            Croft
+          </a>
+          {NAV.map(([href, label]) => (
+            <a href={href} class={label === props.title ? "active" : undefined}>
+              {label}
+            </a>
+          ))}
         </nav>
         <main>{props.children}</main>
       </body>
@@ -56,15 +50,21 @@ function StatusCell({ status }: { status: RunStatus }) {
 export function RunsPage({ runs }: { runs: Run[] }) {
   return (
     <Layout title="Runs">
-      <h1>Runs</h1>
+      <div class="page-head">
+        <h1>Runs</h1>
+        <a class="btn" href="/new">
+          New run
+        </a>
+      </div>
+      <p class="sub">
+        {runs.length} runs · {new Set(runs.map((r) => r.repo)).size} repos
+      </p>
       <table>
         <tr>
-          <th>PR</th>
+          <th>Pull request</th>
           <th>Mode</th>
           <th>Status</th>
-          <th>Model</th>
-          <th>Created</th>
-          <th>Finished</th>
+          <th>Timing</th>
           <th></th>
         </tr>
         {runs.map((r) => (
@@ -73,20 +73,22 @@ export function RunsPage({ runs }: { runs: Run[] }) {
               <a href={`https://github.com/${r.repo}/pull/${r.prNumber}`}>
                 {r.repo}#{r.prNumber}
               </a>
+              <div class="mono muted">{r.model}</div>
             </td>
-            <td>{r.mode}</td>
+            <td class="mono">{r.mode}</td>
             <td>
               <StatusCell status={r.status} />
-              {r.error ? ` — ${r.error}` : ""}
+              {r.error ? <div class="mono muted">{r.error}</div> : null}
             </td>
-            <td>{r.model}</td>
-            <td>{r.createdAt.toISOString().slice(0, 16).replace("T", " ")}</td>
-            <td>{r.finishedAt?.toISOString().slice(0, 16).replace("T", " ") ?? ""}</td>
+            <td class="mono">
+              {r.createdAt.toISOString().slice(0, 16).replace("T", " ")}
+              {r.finishedAt ? ` → ${r.finishedAt.toISOString().slice(11, 16)}` : ""}
+            </td>
             <td>
               <a href={`/runs/${r.id}`}>video</a>
               {r.status === "failed" || r.status === "error" ? (
-                <form method="post" action={`/runs/${r.id}/retry`} style="display:inline;margin-left:0.5rem">
-                  <button>Retry</button>
+                <form method="post" action={`/runs/${r.id}/retry`} style="display:inline;margin-left:0.75rem">
+                  <button class="link">retry</button>
                 </form>
               ) : null}
             </td>
@@ -118,7 +120,8 @@ export function NewRunPage({ prs, error }: { prs: OpenPr[]; error?: string }) {
   return (
     <Layout title="New run">
       <h1>New run</h1>
-      {error ? <p style="color:#b91c1c">{error}</p> : null}
+      <p class="sub">Pick a pull request and Croft takes it from there.</p>
+      {error ? <p style="color:#c04a5e">{error}</p> : null}
       {prs.length === 0 ? (
         <p>No open PRs across the allow-listed repos (configure repos in Settings).</p>
       ) : (
@@ -231,7 +234,8 @@ export function OAuthPastePage({ provider, authorizeUrl }: { provider: string; a
 export function ChatPage(props: { repo?: string; prNumber?: string; question?: string; answer?: string }) {
   return (
     <Layout title="Chat">
-      <h1>Ask Croft about a PR</h1>
+      <h1>Ask about a PR</h1>
+      <p class="sub">Croft reads the diff and answers in place.</p>
       <form method="post" action="/chat">
         <p>
           <input name="repo" placeholder="owner/repo" value={props.repo} required />{" "}

@@ -1,0 +1,207 @@
+:root {
+    --ink: #1c1c1a;
+    --muted: #8b8a82;
+    --hair: #e7e5dd;
+    --plum: #7d4b5e;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    background: #fbfaf8;
+    color: var(--ink);
+}
+
+a {
+    color: inherit;
+}
+
+nav {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: #e7eee6;
+    padding: 0.55rem 1.25rem;
+}
+
+nav a {
+    color: var(--ink);
+    text-decoration: none;
+    padding: 0.35rem 0.9rem;
+    border-radius: 999px;
+}
+
+nav a.brand {
+    font-weight: 700;
+    margin-right: 0.75rem;
+}
+
+nav a.active {
+    background: #fff;
+    font-weight: 600;
+}
+
+main {
+    max-width: 64rem;
+    margin: 2.5rem auto;
+    padding: 0 1.5rem;
+}
+
+h1 {
+    font-size: 2.1rem;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.3rem;
+}
+
+.page-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sub,
+.muted {
+    color: var(--muted);
+}
+
+.sub {
+    margin: 0 0 1.5rem;
+}
+
+.mono,
+th,
+legend,
+code,
+pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+th,
+legend {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--muted);
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 1.5rem;
+}
+
+th,
+td {
+    text-align: left;
+    padding: 0.9rem 0.6rem;
+    border-bottom: 1px solid var(--hair);
+    vertical-align: top;
+}
+
+th {
+    padding-top: 0;
+}
+
+input,
+select,
+textarea {
+    font: inherit;
+    padding: 0.5rem 0.8rem;
+    margin: 0.15rem 0;
+    background: #fff;
+    border: 1px solid var(--hair);
+    border-radius: 0.6rem;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--muted);
+}
+
+button,
+.btn {
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-block;
+    text-decoration: none;
+    background: var(--plum);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.55rem 1.3rem;
+}
+
+button.danger {
+    background: #fbdfe3;
+    color: #b4384f;
+}
+
+button.link {
+    background: none;
+    color: #3c7a49;
+    font-weight: 600;
+    padding: 0;
+}
+
+fieldset {
+    border: none;
+    border-top: 1px solid var(--hair);
+    margin: 2rem 0 0;
+    padding: 1rem 0 0;
+}
+
+legend {
+    padding: 0 0.75rem 0 0;
+}
+
+[class^="status-"] {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.8rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.status-passed {
+    background: #e2efe0;
+    color: #3c7a49;
+}
+
+.status-failed {
+    background: #fce4e9;
+    color: #c04a5e;
+}
+
+.status-error,
+.status-running,
+.status-starting,
+.status-queued {
+    background: #f6e9d3;
+    color: #a8721f;
+}
+
+.status-cap_hit {
+    background: #ece4f7;
+    color: #7c3aed;
+}
+
+video {
+    max-width: 100%;
+    border-radius: 0.75rem;
+}
+
+pre {
+    background: #f3f2ec;
+    padding: 0.9rem 1.1rem;
+    border-radius: 0.75rem;
+    overflow-x: auto;
+    white-space: pre-wrap;
+}
