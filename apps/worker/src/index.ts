@@ -16,6 +16,7 @@ import {
   getProvider,
   loadCredential,
   postPrComment,
+  PLAN_TRIAGE_SKILL,
   runAgentLoop,
   schema,
   TEST_PLAN_SKILL,
@@ -90,9 +91,20 @@ async function main() {
   const cred = await loadCredential(run.credentialId, adapter.oauth);
   const pr = await getPr(run.repo, run.prNumber);
 
-  // Test plan: PR body section, else generated from the diff.
+  // Test plan: PR body section, else generated from the diff. A body plan
+  // that is just a CI report ("tests pass", "typecheck clean") with nothing
+  // for a reviewer to do is discarded so a plan is generated from the diff.
   let plan = extractTestPlan(pr.body);
   let generatedPlan: string | null = null;
+  if (plan) {
+    const verdict = (
+      await complete(adapter, cred, run.model, PLAN_TRIAGE_SKILL, plan)
+    ).trim();
+    if (!verdict.startsWith("USABLE")) {
+      await emit("plan_rejected", { plan });
+      plan = null;
+    }
+  }
   if (!plan) {
     const diff = await getPrDiff(run.repo, run.prNumber);
     plan = (
@@ -108,7 +120,7 @@ async function main() {
       await emit("nothing_testable", {});
       const report: RunReport = {
         summary:
-          "Nothing in this PR's diff is user-testable (no `## Test plan` section, and the changes have no observable surface). No browser run was performed.",
+          "Nothing in this PR's diff is user-testable (no usable `## Test plan` section, and the changes have no observable surface). No browser run was performed.",
         steps: [],
       };
       await setStatus("passed", { report, finishedAt: new Date() });
