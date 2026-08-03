@@ -59,7 +59,7 @@ const reportToolDef = {
               type: "string",
               enum: ["pass", "fail", "not_reached"],
               description:
-                "fail = the app misbehaved when the step was performed. Steps that could not be performed (missing tool, environment limitation) are not_reached, never fail.",
+                "fail = the app misbehaved when the step was performed. Steps that could not be performed (missing tool, environment limitation, test account lacking the data a step assumes) are not_reached, never fail.",
             },
             notes: {
               type: "string",
@@ -70,7 +70,7 @@ const reportToolDef = {
               type: "array",
               items: { type: "string" },
               description:
-                "Names of the screenshots you took while performing this step (the saved names, e.g. '03-step2-norway-selected').",
+                "Names of the screenshots you took while performing this step — the exact saved names the screenshot tool returned (e.g. '03-step2-norway-selected').",
             },
           },
           required: ["step", "status"],
