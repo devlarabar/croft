@@ -5,12 +5,12 @@ import { isTransientDbError, withRetry } from "./retry.js";
 export function eventWriter(runId: string) {
   let seq = 0;
   return async (type: string, payload: unknown, artifactKey?: string) => {
-    const s = ++seq;
+    const currentSeq = ++seq;
     await withRetry(
       () =>
         db.insert(schema.events).values({
           runId,
-          seq: s,
+          seq: currentSeq,
           type,
           payload: payload as object,
           artifactKey,

@@ -55,12 +55,25 @@ export interface ProviderAdapter {
 }
 
 export class LlmTransportError extends Error {
-  constructor(message: string, readonly status?: number) {
+  constructor(
+    message: string,
+    readonly status?: number,
+    readonly retryAfterMs?: number,
+  ) {
     super(message);
   }
 }
 
-// LLM calls retry once, transport/429 errors only.
+// Seconds or an HTTP date, per the Retry-After spec.
+export function parseRetryAfter(header: string | null): number | undefined {
+  if (!header) return undefined;
+  const seconds = Number(header);
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
+  const date = Date.parse(header);
+  return Number.isNaN(date) ? undefined : Math.max(0, date - Date.now());
+}
+
+// Transport/429/5xx errors only; the caller decides how many attempts.
 export function isRetryableLlmError(err: unknown): boolean {
   if (err instanceof LlmTransportError) return err.status === undefined || err.status === 429 || err.status >= 500;
   return err instanceof TypeError; // fetch network failure

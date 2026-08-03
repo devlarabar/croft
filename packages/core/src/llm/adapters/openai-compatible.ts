@@ -7,35 +7,36 @@ import {
   Credential,
   LlmTransportError,
   OAuthConfig,
+  parseRetryAfter,
   ProviderAdapter,
 } from "../types.js";
 
 type Json = Record<string, unknown>;
 
 function toParts(parts: ContentPart[]): Json[] {
-  return parts.map((p) =>
-    p.type === "text"
-      ? { type: "text", text: p.text }
-      : { type: "image_url", image_url: { url: `data:${p.mediaType};base64,${p.dataBase64}` } },
+  return parts.map((part) =>
+    part.type === "text"
+      ? { type: "text", text: part.text }
+      : { type: "image_url", image_url: { url: `data:${part.mediaType};base64,${part.dataBase64}` } },
   );
 }
 
 function toWireMessages(system: string | undefined, messages: ChatMessage[]): Json[] {
   const out: Json[] = [];
   if (system) out.push({ role: "system", content: system });
-  for (const m of messages) {
-    if (m.role === "user") {
-      out.push({ role: "user", content: toParts(m.content) });
-    } else if (m.role === "assistant") {
+  for (const message of messages) {
+    if (message.role === "user") {
+      out.push({ role: "user", content: toParts(message.content) });
+    } else if (message.role === "assistant") {
       out.push({
         role: "assistant",
-        content: m.content || null,
-        ...(m.toolCalls?.length
+        content: message.content || null,
+        ...(message.toolCalls?.length
           ? {
-              tool_calls: m.toolCalls.map((c) => ({
-                id: c.id,
+              tool_calls: message.toolCalls.map((call) => ({
+                id: call.id,
                 type: "function",
-                function: { name: c.name, arguments: JSON.stringify(c.args) },
+                function: { name: call.name, arguments: JSON.stringify(call.args) },
               })),
             }
           : {}),
@@ -43,9 +44,11 @@ function toWireMessages(system: string | undefined, messages: ChatMessage[]): Js
     } else {
       // Tool messages are text-only on this dialect; image parts follow as a
       // user message so vision results still reach the model.
-      const text = m.content.filter((p) => p.type === "text").map((p) => p.text).join("\n") || "(no text output)";
-      out.push({ role: "tool", tool_call_id: m.toolCallId, content: text });
-      const images = m.content.filter((p) => p.type === "image");
+      const text =
+        message.content.filter((part) => part.type === "text").map((part) => part.text).join("\n") ||
+        "(no text output)";
+      out.push({ role: "tool", tool_call_id: message.toolCallId, content: text });
+      const images = message.content.filter((part) => part.type === "image");
       if (images.length) out.push({ role: "user", content: toParts(images) });
     }
   }
@@ -84,16 +87,20 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
         messages: toWireMessages(req.system, req.messages),
         ...(req.tools?.length
           ? {
-              tools: req.tools.map((t) => ({
+              tools: req.tools.map((tool) => ({
                 type: "function",
-                function: { name: t.name, description: t.description, parameters: t.inputSchema },
+                function: { name: tool.name, description: tool.description, parameters: tool.inputSchema },
               })),
             }
           : {}),
       }),
     });
     if (!res.ok || !res.body) {
-      throw new LlmTransportError(`${this.id} ${res.status}: ${await res.text()}`, res.status);
+      throw new LlmTransportError(
+        `${this.id} ${res.status}: ${await res.text()}`,
+        res.status,
+        parseRetryAfter(res.headers.get("retry-after")),
+      );
     }
 
     const calls: ToolCallAccumulator[] = [];
@@ -112,17 +119,17 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
       const choice = chunk.choices?.[0];
       if (!choice) continue;
       if (choice.delta?.content) yield { type: "text_delta", text: choice.delta.content };
-      for (const tc of choice.delta?.tool_calls ?? []) {
-        calls[tc.index] ??= { id: "", name: "", args: "" };
-        if (tc.id) calls[tc.index]!.id = tc.id;
-        if (tc.function?.name) calls[tc.index]!.name += tc.function.name;
-        if (tc.function?.arguments) calls[tc.index]!.args += tc.function.arguments;
+      for (const toolCall of choice.delta?.tool_calls ?? []) {
+        calls[toolCall.index] ??= { id: "", name: "", args: "" };
+        if (toolCall.id) calls[toolCall.index]!.id = toolCall.id;
+        if (toolCall.function?.name) calls[toolCall.index]!.name += toolCall.function.name;
+        if (toolCall.function?.arguments) calls[toolCall.index]!.args += toolCall.function.arguments;
       }
       if (choice.finish_reason) finish = choice.finish_reason;
     }
 
-    for (const c of calls) {
-      yield { type: "tool_call", call: { id: c.id, name: c.name, args: c.args ? JSON.parse(c.args) : {} } };
+    for (const call of calls) {
+      yield { type: "tool_call", call: { id: call.id, name: call.name, args: call.args ? JSON.parse(call.args) : {} } };
     }
     yield {
       type: "done",

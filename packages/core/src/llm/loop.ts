@@ -5,6 +5,7 @@ import {
   ChatRequest,
   ContentPart,
   Credential,
+  LlmTransportError,
   ProviderAdapter,
   ToolCall,
   ToolDef,
@@ -23,6 +24,16 @@ interface Turn {
   stopReason: "end" | "tool_use" | "max_tokens";
 }
 
+const MAX_LLM_ATTEMPTS = 5;
+const MAX_BACKOFF_MS = 30_000;
+
+// Rate limits are routine on long agent runs: back off exponentially,
+// honoring the provider's Retry-After when it sends one.
+function llmRetryDelayMs(err: unknown, attempt: number): number {
+  const retryAfterMs = err instanceof LlmTransportError ? err.retryAfterMs : undefined;
+  return Math.min(retryAfterMs ?? 1000 * 2 ** attempt, MAX_BACKOFF_MS);
+}
+
 async function chatTurn(adapter: ProviderAdapter, req: ChatRequest, cred: Credential): Promise<Turn> {
   return withRetry(
     async () => {
@@ -34,7 +45,7 @@ async function chatTurn(adapter: ProviderAdapter, req: ChatRequest, cred: Creden
       }
       return turn;
     },
-    { attempts: 2, shouldRetry: isRetryableLlmError },
+    { attempts: MAX_LLM_ATTEMPTS, shouldRetry: isRetryableLlmError, delayMs: llmRetryDelayMs },
   );
 }
 
@@ -56,13 +67,13 @@ export async function runAgentLoop(
 ): Promise<{ outcome: "done" | "cap_hit"; messages: ChatMessage[] }> {
   const cap = opts.toolCallCap ?? 50;
   const messages = [...opts.messages];
-  const byName = new Map(opts.tools.map((t) => [t.def.name, t]));
+  const byName = new Map(opts.tools.map((tool) => [tool.def.name, tool]));
   let toolCalls = 0;
 
   while (true) {
     const turn = await chatTurn(
       opts.adapter,
-      { model: opts.model, system: opts.system, messages, tools: opts.tools.map((t) => t.def) },
+      { model: opts.model, system: opts.system, messages, tools: opts.tools.map((tool) => tool.def) },
       opts.cred,
     );
     messages.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls });
@@ -86,7 +97,7 @@ export async function runAgentLoop(
       const result = await executeTool(byName.get(call.name), call);
       await opts.onEvent("tool_result", {
         name: call.name,
-        result: result.filter((p) => p.type === "text"),
+        result: result.filter((part) => part.type === "text"),
       });
       messages.push({ role: "tool", toolCallId: call.id, content: result });
     }

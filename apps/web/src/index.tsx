@@ -48,9 +48,9 @@ import { handleWebhook } from "./webhook.js";
 const app = new Hono();
 
 // Single-user dashboard: show the real error instead of a bare 500.
-app.onError((err, c) => {
+app.onError((err, ctx) => {
   console.error(err);
-  return c.text(`${err.message}\n\n${err.stack ?? ""}`, 500);
+  return ctx.text(`${err.message}\n\n${err.stack ?? ""}`, 500);
 });
 
 // Public endpoints; everything else requires the dashboard session.
@@ -58,41 +58,41 @@ app.post("/api/webhooks/github", handleWebhook);
 // Ad-hoc local runs — the route only exists on the auth-less dev stack.
 if (process.env.DEV_NO_AUTH === "1") app.post("/api/local-runs", handleLocalRun);
 const favicon = readFileSync(new URL("../public/favicon.png", import.meta.url));
-app.get("/favicon.ico", (c) => c.body(favicon, 200, { "Content-Type": "image/png" }));
+app.get("/favicon.ico", (ctx) => ctx.body(favicon, 200, { "Content-Type": "image/png" }));
 const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
-app.get("/styles.css", (c) => c.body(styles, 200, { "Content-Type": "text/css" }));
-app.get("/login", (c) => {
+app.get("/styles.css", (ctx) => ctx.body(styles, 200, { "Content-Type": "text/css" }));
+app.get("/login", (ctx) => {
   const state = newState();
-  setOAuthState(c, { provider: "github-login", state, verifier: "" });
-  return c.redirect(githubLoginUrl(state));
+  setOAuthState(ctx, { provider: "github-login", state, verifier: "" });
+  return ctx.redirect(githubLoginUrl(state));
 });
-app.get("/login/callback", async (c) => {
-  const st = getOAuthState(c);
-  if (!st || st.provider !== "github-login" || st.state !== c.req.query("state")) {
-    return c.text("bad oauth state", 400);
+app.get("/login/callback", async (ctx) => {
+  const oauthState = getOAuthState(ctx);
+  if (!oauthState || oauthState.provider !== "github-login" || oauthState.state !== ctx.req.query("state")) {
+    return ctx.text("bad oauth state", 400);
   }
-  const login = await githubExchange(c.req.query("code") ?? "");
-  if (!login || login !== process.env.DASHBOARD_USER) return c.text("forbidden", 403);
-  setSession(c, login);
-  return c.redirect("/runs");
+  const login = await githubExchange(ctx.req.query("code") ?? "");
+  if (!login || login !== process.env.DASHBOARD_USER) return ctx.text("forbidden", 403);
+  setSession(ctx, login);
+  return ctx.redirect("/runs");
 });
 
 app.use("*", requireAuth);
 
-app.get("/", (c) => c.redirect("/runs"));
+app.get("/", (ctx) => ctx.redirect("/runs"));
 
-app.get("/runs", async (c) => {
+app.get("/runs", async (ctx) => {
   const runs = await db.select().from(schema.runs).orderBy(desc(schema.runs.createdAt)).limit(100);
-  return c.html(<RunsPage runs={runs} />);
+  return ctx.html(<RunsPage runs={runs} />);
 });
 
-app.get("/runs/:id", async (c) => {
-  const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, c.req.param("id")));
-  if (!run) return c.notFound();
-  return c.html(<RunDetailPage run={run} videoUrl={publicUrl(`${run.id}/run.webm`)} />);
+app.get("/runs/:id", async (ctx) => {
+  const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, ctx.req.param("id")));
+  if (!run) return ctx.notFound();
+  return ctx.html(<RunDetailPage run={run} videoUrl={publicUrl(`${run.id}/run.webm`)} />);
 });
 
-app.get("/new", async (c) => {
+app.get("/new", async (ctx) => {
   const cfg = await getConfig();
   const prs: OpenPr[] = [];
   for (const repo of cfg.repos) {
@@ -100,11 +100,11 @@ app.get("/new", async (c) => {
       prs.push({ repo, number: pr.number, title: pr.title });
     }
   }
-  return c.html(<NewRunPage prs={prs} error={c.req.query("error")} />);
+  return ctx.html(<NewRunPage prs={prs} error={ctx.req.query("error")} />);
 });
 
-app.post("/runs", async (c) => {
-  const form = await c.req.formData();
+app.post("/runs", async (ctx) => {
+  const form = await ctx.req.formData();
   const [repo, num] = String(form.get("pr")).split("#");
   try {
     const result = await startRun({
@@ -114,18 +114,18 @@ app.post("/runs", async (c) => {
       previewUrl: String(form.get("previewUrl") ?? "") || undefined,
       freshPlan: form.get("freshPlan") === "on",
     });
-    if (!result.started) return c.redirect(`/new?error=${encodeURIComponent(result.reason!)}`);
+    if (!result.started) return ctx.redirect(`/new?error=${encodeURIComponent(result.reason!)}`);
   } catch (err) {
-    return c.redirect(`/new?error=${encodeURIComponent((err as Error).message)}`);
+    return ctx.redirect(`/new?error=${encodeURIComponent((err as Error).message)}`);
   }
-  return c.redirect("/runs");
+  return ctx.redirect("/runs");
 });
 
-app.post("/runs/:id/retry", async (c) => {
-  const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, c.req.param("id")));
-  if (!run) return c.notFound();
+app.post("/runs/:id/retry", async (ctx) => {
+  const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, ctx.req.param("id")));
+  if (!run) return ctx.notFound();
   if (run.status !== "failed" && run.status !== "error" && run.status !== "partial") {
-    return c.text("run is not retryable", 400);
+    return ctx.text("run is not retryable", 400);
   }
   const result = await startRun({
     repo: run.repo,
@@ -134,55 +134,55 @@ app.post("/runs/:id/retry", async (c) => {
     previewUrl: run.previewUrl ?? undefined,
     freshPlan: run.freshPlan,
   });
-  if (!result.started) return c.redirect(`/new?error=${encodeURIComponent(result.reason!)}`);
-  return c.redirect("/runs");
+  if (!result.started) return ctx.redirect(`/new?error=${encodeURIComponent(result.reason!)}`);
+  return ctx.redirect("/runs");
 });
 
 // Diagnostic: which credential rows decrypt under this instance's key.
 // Exposes only metadata + a boolean, never plaintext.
-app.get("/credcheck", async (c) => {
+app.get("/credcheck", async (ctx) => {
   const rows = await db.select().from(schema.credentials).orderBy(desc(schema.credentials.createdAt));
   const cfg = await getConfig();
-  return c.json(
-    rows.map((r) => {
+  return ctx.json(
+    rows.map((row) => {
       let decrypts = true;
       try {
-        decrypt(r.encrypted);
+        decrypt(row.encrypted);
       } catch {
         decrypts = false;
       }
       return {
-        id: r.id,
-        providerId: r.providerId,
-        kind: r.kind,
-        createdAt: r.createdAt,
+        id: row.id,
+        providerId: row.providerId,
+        kind: row.kind,
+        createdAt: row.createdAt,
         decrypts,
-        active: cfg.activeModel?.credentialId === r.id,
+        active: cfg.activeModel?.credentialId === row.id,
       };
     }),
   );
 });
 
 // Diagnostic: runtime key fingerprint (not the key), for comparison with the worker's boot log.
-app.get("/keyfp", (c) =>
-  c.text(createHash("sha256").update(process.env.TOKEN_ENC_KEY!).digest("hex").slice(0, 8)),
+app.get("/keyfp", (ctx) =>
+  ctx.text(createHash("sha256").update(process.env.TOKEN_ENC_KEY!).digest("hex").slice(0, 8)),
 );
 
-app.get("/models", async (c) => {
+app.get("/models", async (ctx) => {
   const cfg = await getConfig();
   const creds = await db.select().from(schema.credentials).orderBy(desc(schema.credentials.createdAt));
-  return c.html(
+  return ctx.html(
     <ModelsPage
       providers={Object.values(PROVIDERS)}
       creds={creds}
       active={cfg.activeModel}
-      notice={c.req.query("notice")}
+      notice={ctx.req.query("notice")}
     />,
   );
 });
 
-app.post("/models/credential", async (c) => {
-  const form = await c.req.formData();
+app.post("/models/credential", async (ctx) => {
+  const form = await ctx.req.formData();
   const providerId = String(form.get("providerId"));
   getProvider(providerId); // validate
   await db.insert(schema.credentials).values({
@@ -190,11 +190,11 @@ app.post("/models/credential", async (c) => {
     kind: "api_key",
     encrypted: encrypt(String(form.get("apiKey"))),
   });
-  return c.redirect("/models?notice=API+key+saved");
+  return ctx.redirect("/models?notice=API+key+saved");
 });
 
-app.post("/models/active", async (c) => {
-  const form = await c.req.formData();
+app.post("/models/active", async (ctx) => {
+  const form = await ctx.req.formData();
   const [providerId, ...rest] = String(form.get("model")).split("/");
   await updateConfig({
     activeModel: {
@@ -203,96 +203,96 @@ app.post("/models/active", async (c) => {
       credentialId: String(form.get("credentialId")),
     },
   });
-  return c.redirect("/models?notice=Active+model+updated");
+  return ctx.redirect("/models?notice=Active+model+updated");
 });
 
-app.get("/oauth/start", (c) => {
-  const provider = getProvider(c.req.query("provider") ?? "");
-  if (!provider.oauth) return c.text("provider has no oauth", 400);
+app.get("/oauth/start", (ctx) => {
+  const provider = getProvider(ctx.req.query("provider") ?? "");
+  if (!provider.oauth) return ctx.text("provider has no oauth", 400);
   const pkce = generatePkce();
   // Anthropic's authorize endpoint rejects the flow with "Invalid request
   // format" unless state is the PKCE verifier (matches pi and Claude Code).
   const state = pkce.verifier;
-  setOAuthState(c, { provider: provider.id, state, verifier: pkce.verifier });
+  setOAuthState(ctx, { provider: provider.id, state, verifier: pkce.verifier });
   const url = authorizeUrl(provider.oauth, pkce.challenge, state);
   if (provider.oauth.codePaste) {
-    return c.html(<OAuthPastePage provider={provider.id} authorizeUrl={url} />);
+    return ctx.html(<OAuthPastePage provider={provider.id} authorizeUrl={url} />);
   }
-  return c.redirect(url);
+  return ctx.redirect(url);
 });
 
 async function storeOAuthCredential(providerId: string, pasted: string, verifier: string) {
   const provider = getProvider(providerId);
-  const t = await exchangeCode(provider.oauth!, pasted, verifier);
+  const tokens = await exchangeCode(provider.oauth!, pasted, verifier);
   await db.insert(schema.credentials).values({
     providerId,
     kind: "oauth",
-    encrypted: encrypt(JSON.stringify({ accessToken: t.accessToken, refreshToken: t.refreshToken })),
-    expiresAt: t.expiresAt,
+    encrypted: encrypt(JSON.stringify({ accessToken: tokens.accessToken, refreshToken: tokens.refreshToken })),
+    expiresAt: tokens.expiresAt,
   });
 }
 
 // Redirect-flow providers land here; code-paste providers go through /oauth/paste.
-app.get("/oauth/callback", async (c) => {
-  const st = getOAuthState(c);
-  if (!st || st.state !== c.req.query("state")) return c.text("bad oauth state", 400);
-  await storeOAuthCredential(st.provider, c.req.query("code") ?? "", st.verifier);
-  return c.redirect("/models?notice=OAuth+connected");
+app.get("/oauth/callback", async (ctx) => {
+  const oauthState = getOAuthState(ctx);
+  if (!oauthState || oauthState.state !== ctx.req.query("state")) return ctx.text("bad oauth state", 400);
+  await storeOAuthCredential(oauthState.provider, ctx.req.query("code") ?? "", oauthState.verifier);
+  return ctx.redirect("/models?notice=OAuth+connected");
 });
 
-app.post("/oauth/paste", async (c) => {
-  const st = getOAuthState(c);
-  if (!st) return c.text("oauth session expired — start again", 400);
-  const form = await c.req.formData();
-  await storeOAuthCredential(st.provider, String(form.get("code")), st.verifier);
-  return c.redirect("/models?notice=OAuth+connected");
+app.post("/oauth/paste", async (ctx) => {
+  const oauthState = getOAuthState(ctx);
+  if (!oauthState) return ctx.text("oauth session expired — start again", 400);
+  const form = await ctx.req.formData();
+  await storeOAuthCredential(oauthState.provider, String(form.get("code")), oauthState.verifier);
+  return ctx.redirect("/models?notice=OAuth+connected");
 });
 
-app.get("/chat", (c) => c.html(<ChatPage />));
+app.get("/chat", (ctx) => ctx.html(<ChatPage />));
 
-app.post("/chat", async (c) => {
-  const form = await c.req.formData();
+app.post("/chat", async (ctx) => {
+  const form = await ctx.req.formData();
   const repo = String(form.get("repo"));
   const prNumber = String(form.get("prNumber"));
   const question = String(form.get("question"));
   const answer = await answerQuestion(repo, Number(prNumber), question);
-  return c.html(<ChatPage repo={repo} prNumber={prNumber} question={question} answer={answer} />);
+  return ctx.html(<ChatPage repo={repo} prNumber={prNumber} question={question} answer={answer} />);
 });
 
-app.get("/export", (c) => c.html(<ExportPage notice={c.req.query("notice")} />));
+app.get("/export", (ctx) => ctx.html(<ExportPage notice={ctx.req.query("notice")} />));
 
-app.get("/api/export", async (c) => {
-  const before = new Date(c.req.query("before") ?? "");
-  if (Number.isNaN(before.getTime())) return c.text("invalid date", 400);
-  c.header("content-type", "application/zip");
-  c.header(
+app.get("/api/export", async (ctx) => {
+  const before = new Date(ctx.req.query("before") ?? "");
+  if (Number.isNaN(before.getTime())) return ctx.text("invalid date", 400);
+  ctx.header("content-type", "application/zip");
+  ctx.header(
     "content-disposition",
     `attachment; filename="croft-export-${before.toISOString().slice(0, 10)}.zip"`,
   );
-  return c.body(await exportZip(before));
+  return ctx.body(await exportZip(before));
 });
 
-app.post("/api/purge", async (c) => {
-  const form = await c.req.formData();
+app.post("/api/purge", async (ctx) => {
+  const form = await ctx.req.formData();
   if (form.get("confirm") !== "delete") {
-    return c.redirect("/export?notice=Purge+not+confirmed+—+type+delete");
+    return ctx.redirect("/export?notice=Purge+not+confirmed+—+type+delete");
   }
   const before = new Date(String(form.get("before")));
-  if (Number.isNaN(before.getTime())) return c.text("invalid date", 400);
-  const n = await purge(before);
-  return c.redirect(`/export?notice=Deleted+${n}+runs`);
+  if (Number.isNaN(before.getTime())) return ctx.text("invalid date", 400);
+  const deleted = await purge(before);
+  return ctx.redirect(`/export?notice=Deleted+${deleted}+runs`);
 });
 
-app.get("/settings", async (c) => {
-  return c.html(<SettingsPage cfg={await getConfig()} notice={c.req.query("notice")} />);
+app.get("/settings", async (ctx) => {
+  return ctx.html(<SettingsPage cfg={await getConfig()} notice={ctx.req.query("notice")} />);
 });
 
-app.post("/settings", async (c) => {
-  const form = await c.req.formData();
+app.post("/settings", async (ctx) => {
+  const form = await ctx.req.formData();
   const cfg = await getConfig();
   const repos = String(form.get("repos") ?? "")
     .split("\n")
-    .map((s) => s.trim())
+    .map((line) => line.trim())
     .filter(Boolean);
   const previewLogins: Record<string, PreviewLogin> = {};
   const repoContext: Record<string, string> = {};
@@ -318,12 +318,12 @@ app.post("/settings", async (c) => {
     repos,
     allowedUsers: String(form.get("allowedUsers") ?? "")
       .split("\n")
-      .map((s) => s.trim())
+      .map((line) => line.trim())
       .filter(Boolean),
     previewLogins,
     repoContext,
   });
-  return c.redirect("/settings?notice=Saved");
+  return ctx.redirect("/settings?notice=Saved");
 });
 
 const port = Number(process.env.PORT ?? 3000);

@@ -20,9 +20,9 @@ function verify(token: string | undefined): string | null {
   return payload;
 }
 
-export function setSession(c: Context, username: string): void {
+export function setSession(ctx: Context, username: string): void {
   const exp = Date.now() + 30 * 24 * 3600 * 1000;
-  setCookie(c, COOKIE, sign(JSON.stringify({ username, exp })), {
+  setCookie(ctx, COOKIE, sign(JSON.stringify({ username, exp })), {
     httpOnly: true,
     secure: true,
     sameSite: "Lax",
@@ -31,8 +31,8 @@ export function setSession(c: Context, username: string): void {
   });
 }
 
-export function sessionUser(c: Context): string | null {
-  const payload = verify(getCookie(c, COOKIE));
+export function sessionUser(ctx: Context): string | null {
+  const payload = verify(getCookie(ctx, COOKIE));
   if (!payload) return null;
   const { username, exp } = JSON.parse(payload) as { username: string; exp: number };
   return exp > Date.now() ? username : null;
@@ -46,8 +46,8 @@ export interface OAuthState {
   verifier: string;
 }
 
-export function setOAuthState(c: Context, data: OAuthState): void {
-  setCookie(c, OAUTH_COOKIE, sign(JSON.stringify({ ...data, exp: Date.now() + 10 * 60_000 })), {
+export function setOAuthState(ctx: Context, data: OAuthState): void {
+  setCookie(ctx, OAUTH_COOKIE, sign(JSON.stringify({ ...data, exp: Date.now() + 10 * 60_000 })), {
     httpOnly: true,
     secure: true,
     sameSite: "Lax",
@@ -56,8 +56,8 @@ export function setOAuthState(c: Context, data: OAuthState): void {
   });
 }
 
-export function getOAuthState(c: Context): OAuthState | null {
-  const payload = verify(getCookie(c, OAUTH_COOKIE));
+export function getOAuthState(ctx: Context): OAuthState | null {
+  const payload = verify(getCookie(ctx, OAUTH_COOKIE));
   if (!payload) return null;
   const data = JSON.parse(payload) as OAuthState & { exp: number };
   return data.exp > Date.now() ? data : null;
@@ -68,11 +68,11 @@ export function newState(): string {
 }
 
 // GitHub OAuth login restricted to DASHBOARD_USER.
-export async function requireAuth(c: Context, next: Next) {
+export async function requireAuth(ctx: Context, next: Next) {
   // Local dev only: skip GitHub login entirely.
   if (process.env.DEV_NO_AUTH === "1") return next();
-  if (sessionUser(c)) return next();
-  return c.redirect("/login");
+  if (sessionUser(ctx)) return next();
+  return ctx.redirect("/login");
 }
 
 export function githubLoginUrl(state: string): string {

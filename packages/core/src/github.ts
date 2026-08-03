@@ -144,10 +144,10 @@ export async function listOpenPrs(repo: string) {
 // Checks once; never waits, never polls.
 export async function discoverPreviewUrl(repo: string, prNumber: number): Promise<string | null> {
   const comments = await listPrComments(repo, prNumber);
-  for (const c of comments) {
-    if (!/preview deployment/i.test(c.body ?? "")) continue;
-    const m = c.body?.match(/https?:\/\/[^\s)>\]"']+/);
-    if (m) return m[0];
+  for (const comment of comments) {
+    if (!/preview deployment/i.test(comment.body ?? "")) continue;
+    const urlMatch = comment.body?.match(/https?:\/\/[^\s)>\]"']+/);
+    if (urlMatch) return urlMatch[0];
   }
   return null;
 }

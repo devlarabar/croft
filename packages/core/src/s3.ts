@@ -69,15 +69,15 @@ export async function listArtifactKeys(prefix: string): Promise<string[]> {
     const res = await s3.send(
       new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: token }),
     );
-    keys.push(...(res.Contents ?? []).map((o) => o.Key!));
+    keys.push(...(res.Contents ?? []).map((object) => object.Key!));
     token = res.NextContinuationToken;
   } while (token);
   return keys;
 }
 
 export async function deleteArtifacts(keys: string[]): Promise<void> {
-  for (let i = 0; i < keys.length; i += 1000) {
-    const batch = keys.slice(i, i + 1000);
+  for (let offset = 0; offset < keys.length; offset += 1000) {
+    const batch = keys.slice(offset, offset + 1000);
     await withRetry(
       () =>
         s3.send(

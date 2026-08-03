@@ -10,14 +10,14 @@ import { stream } from "hono/streaming";
 
 const LOCAL_WORKER = fileURLToPath(new URL("../../worker/dist/local.js", import.meta.url));
 
-export async function handleLocalRun(c: Context) {
-  const body = await c.req.json<{
+export async function handleLocalRun(ctx: Context) {
+  const body = await ctx.req.json<{
     url?: string;
     plan?: string;
     context?: string;
     login?: { username: string; password: string; loginUrl?: string };
   }>();
-  if (!body.url || !body.plan) return c.text("url and plan are required", 400);
+  if (!body.url || !body.plan) return ctx.text("url and plan are required", 400);
 
   const dir = await mkdtemp(join(tmpdir(), "croft-local-"));
   const planFile = join(dir, "plan.md");
@@ -45,8 +45,8 @@ export async function handleLocalRun(c: Context) {
   });
   child.stderr.on("data", (chunk: Buffer) => process.stderr.write(chunk));
 
-  c.header("Content-Type", "application/x-ndjson");
-  return stream(c, async (outStream) => {
+  ctx.header("Content-Type", "application/x-ndjson");
+  return stream(ctx, async (outStream) => {
     outStream.onAbort(() => {
       child.kill();
     });

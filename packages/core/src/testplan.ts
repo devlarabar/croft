@@ -23,13 +23,13 @@ Reply with exactly one word: USABLE or UNUSABLE.
 export function extractTestPlan(body: string | null | undefined): string | null {
   if (!body) return null;
   const lines = body.split(/\r?\n/);
-  const start = lines.findIndex((l) => /^(##?)\s+test plan\s*$/i.test(l.trim()));
+  const start = lines.findIndex((line) => /^(##?)\s+test plan\s*$/i.test(line.trim()));
   if (start === -1) return null;
   const level = lines[start]!.trim().match(/^#+/)![0].length;
   const section: string[] = [];
   for (const line of lines.slice(start + 1)) {
-    const h = line.trim().match(/^(#+)\s/);
-    if (h && h[1]!.length <= level) break;
+    const header = line.trim().match(/^(#+)\s/);
+    if (header && header[1]!.length <= level) break;
     section.push(line);
   }
   const plan = section.join("\n").trim();

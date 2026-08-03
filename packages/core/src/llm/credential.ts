@@ -27,9 +27,9 @@ export async function loadCredential(credentialId: string, oauth?: OAuthConfig):
     getToken: () => {
       const inflight = refreshing.get(row.id);
       if (inflight) return inflight;
-      const p = oauthToken(row, oauth).finally(() => refreshing.delete(row.id));
-      refreshing.set(row.id, p);
-      return p;
+      const pending = oauthToken(row, oauth).finally(() => refreshing.delete(row.id));
+      refreshing.set(row.id, pending);
+      return pending;
     },
   };
 }
@@ -40,17 +40,17 @@ async function oauthToken(row: typeof schema.credentials.$inferSelect, oauth?: O
   if (fresh || !blob.refreshToken) return blob.accessToken;
   if (!oauth) throw new Error(`provider has no oauth config to refresh credential ${row.id}`);
 
-  const t = await refreshAccessToken(oauth, blob.refreshToken);
+  const refreshed = await refreshAccessToken(oauth, blob.refreshToken);
   const next: OAuthBlob = {
-    accessToken: t.accessToken,
-    refreshToken: t.refreshToken ?? blob.refreshToken,
+    accessToken: refreshed.accessToken,
+    refreshToken: refreshed.refreshToken ?? blob.refreshToken,
   };
   await db
     .update(schema.credentials)
-    .set({ encrypted: encrypt(JSON.stringify(next)), expiresAt: t.expiresAt ?? null })
+    .set({ encrypted: encrypt(JSON.stringify(next)), expiresAt: refreshed.expiresAt ?? null })
     .where(eq(schema.credentials.id, row.id));
   // update row in memory so a second call within this process sees the new expiry
   row.encrypted = encrypt(JSON.stringify(next));
-  row.expiresAt = t.expiresAt ?? null;
+  row.expiresAt = refreshed.expiresAt ?? null;
   return next.accessToken;
 }

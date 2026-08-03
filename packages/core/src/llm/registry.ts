@@ -9,7 +9,7 @@ export const PROVIDERS: Record<string, ProviderAdapter> = {
 };
 
 export function getProvider(id: string): ProviderAdapter {
-  const p = PROVIDERS[id];
-  if (!p) throw new Error(`unknown provider ${id}`);
-  return p;
+  const provider = PROVIDERS[id];
+  if (!provider) throw new Error(`unknown provider ${id}`);
+  return provider;
 }

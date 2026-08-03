@@ -7,6 +7,7 @@ import {
   ContentPart,
   Credential,
   LlmTransportError,
+  parseRetryAfter,
   ProviderAdapter,
 } from "../types.js";
 
@@ -21,12 +22,12 @@ const BILLING_HEADER_SALT = "59cf53e54c78";
 const BILLING_HEADER_POSITIONS = [4, 7, 20];
 
 function billingHeader(messages: ChatMessage[]): string | undefined {
-  const first = messages.find((m) => m.role === "user");
-  const part = first?.role === "user" ? first.content.find((p) => p.type === "text") : undefined;
+  const first = messages.find((message) => message.role === "user");
+  const part = first?.role === "user" ? first.content.find((contentPart) => contentPart.type === "text") : undefined;
   const text = part?.type === "text" ? part.text : "";
   if (!text) return undefined;
   const cch = createHash("sha256").update(text).digest("hex").slice(0, 5);
-  const sampled = BILLING_HEADER_POSITIONS.map((i) => text[i] || "0").join("");
+  const sampled = BILLING_HEADER_POSITIONS.map((position) => text[position] || "0").join("");
   const suffix = createHash("sha256")
     .update(`${BILLING_HEADER_SALT}${sampled}${CLAUDE_CODE_VERSION}`)
     .digest("hex")
@@ -35,28 +36,28 @@ function billingHeader(messages: ChatMessage[]): string | undefined {
 }
 
 function toParts(parts: ContentPart[]): Json[] {
-  return parts.map((p) =>
-    p.type === "text"
-      ? { type: "text", text: p.text }
-      : { type: "image", source: { type: "base64", media_type: p.mediaType, data: p.dataBase64 } },
+  return parts.map((part) =>
+    part.type === "text"
+      ? { type: "text", text: part.text }
+      : { type: "image", source: { type: "base64", media_type: part.mediaType, data: part.dataBase64 } },
   );
 }
 
 function toWireMessages(messages: ChatMessage[]): Json[] {
   const out: Json[] = [];
-  for (const m of messages) {
-    if (m.role === "user") {
-      out.push({ role: "user", content: toParts(m.content) });
-    } else if (m.role === "assistant") {
-      const content: Json[] = m.content ? [{ type: "text", text: m.content }] : [];
-      for (const c of m.toolCalls ?? []) {
-        content.push({ type: "tool_use", id: c.id, name: c.name, input: c.args });
+  for (const message of messages) {
+    if (message.role === "user") {
+      out.push({ role: "user", content: toParts(message.content) });
+    } else if (message.role === "assistant") {
+      const content: Json[] = message.content ? [{ type: "text", text: message.content }] : [];
+      for (const call of message.toolCalls ?? []) {
+        content.push({ type: "tool_use", id: call.id, name: call.name, input: call.args });
       }
       out.push({ role: "assistant", content });
     } else {
       out.push({
         role: "user",
-        content: [{ type: "tool_result", tool_use_id: m.toolCallId, content: toParts(m.content) }],
+        content: [{ type: "tool_result", tool_use_id: message.toolCallId, content: toParts(message.content) }],
       });
     }
   }
@@ -111,17 +112,21 @@ class AnthropicAdapter implements ProviderAdapter {
         messages: toWireMessages(req.messages),
         ...(req.tools?.length
           ? {
-              tools: req.tools.map((t) => ({
-                name: t.name,
-                description: t.description,
-                input_schema: t.inputSchema,
+              tools: req.tools.map((tool) => ({
+                name: tool.name,
+                description: tool.description,
+                input_schema: tool.inputSchema,
               })),
             }
           : {}),
       }),
     });
     if (!res.ok || !res.body) {
-      throw new LlmTransportError(`anthropic ${res.status}: ${await res.text()}`, res.status);
+      throw new LlmTransportError(
+        `anthropic ${res.status}: ${await res.text()}`,
+        res.status,
+        parseRetryAfter(res.headers.get("retry-after")),
+      );
     }
 
     let block: { id: string; name: string; json: string } | null = null;

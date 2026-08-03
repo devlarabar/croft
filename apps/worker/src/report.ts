@@ -39,15 +39,15 @@ export function formatComment(opts: {
   if (opts.report) {
     if (!opts.report.steps.length) lines.push(opts.report.summary, "");
     if (opts.report.steps.length) {
-      const byName = new Map(opts.screenshots.map((s) => [s.name, s.url]));
+      const byName = new Map(opts.screenshots.map((shot) => [shot.name, shot.url]));
       // The tool prepends a numeric counter to the model's chosen name; accept
       // either form so a step's screenshots don't fall through to "other".
       const resolve = (name: string) =>
-        byName.has(name) ? name : opts.screenshots.find((s) => s.name.endsWith(`-${name}`))?.name;
+        byName.has(name) ? name : opts.screenshots.find((shot) => shot.name.endsWith(`-${name}`))?.name;
       const referenced = new Set<string>();
       lines.push("| Step | Result | Notes | Screenshots |", "| --- | --- | --- | --- |");
-      for (const s of opts.report.steps) {
-        const cell = (s.screenshots ?? [])
+      for (const step of opts.report.steps) {
+        const cell = (step.screenshots ?? [])
           .map(resolve)
           .filter((name): name is string => name !== undefined)
           .map((name) => {
@@ -56,10 +56,10 @@ export function formatComment(opts: {
             return `<a href="${url}"><img src="${url}" width="120" alt="${name}"></a>`;
           })
           .join(" ");
-        lines.push(`| ${s.step.replaceAll("|", "\\|")} | ${ICONS[s.status]} ${s.status.replace("_", " ")} | ${(s.notes ?? "").replaceAll("|", "\\|")} | ${cell} |`);
+        lines.push(`| ${step.step.replaceAll("|", "\\|")} | ${ICONS[step.status]} ${step.status.replace("_", " ")} | ${(step.notes ?? "").replaceAll("|", "\\|")} | ${cell} |`);
       }
       lines.push("");
-      leftoverScreenshots = opts.screenshots.filter((s) => !referenced.has(s.name));
+      leftoverScreenshots = opts.screenshots.filter((shot) => !referenced.has(shot.name));
     }
   }
   if (opts.generatedPlan) {
@@ -74,7 +74,7 @@ export function formatComment(opts: {
   }
   if (leftoverScreenshots.length) {
     lines.push("<details><summary>Other screenshots</summary>", "");
-    for (const s of leftoverScreenshots) lines.push(`![${s.name}](${s.url})`);
+    for (const shot of leftoverScreenshots) lines.push(`![${shot.name}](${shot.url})`);
     lines.push("", "</details>", "");
   }
   lines.push(`▶️ [Watch the run video](${opts.runUrl})`);

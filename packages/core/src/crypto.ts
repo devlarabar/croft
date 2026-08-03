@@ -2,9 +2,9 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 
 // TOKEN_ENC_KEY: 32 bytes, hex-encoded.
 function key(): Buffer {
-  const k = Buffer.from(process.env.TOKEN_ENC_KEY!, "hex");
-  if (k.length !== 32) throw new Error("TOKEN_ENC_KEY must be 32 bytes of hex");
-  return k;
+  const keyBytes = Buffer.from(process.env.TOKEN_ENC_KEY!, "hex");
+  if (keyBytes.length !== 32) throw new Error("TOKEN_ENC_KEY must be 32 bytes of hex");
+  return keyBytes;
 }
 
 // base64(iv | authTag | ciphertext)

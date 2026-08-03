@@ -64,7 +64,7 @@ export const events = pgTable(
     artifactKey: text("artifact_key"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.runId, t.seq] })],
+  (table) => [primaryKey({ columns: [table.runId, table.seq] })],
 );
 
 export const webhookDeliveries = pgTable("webhook_deliveries", {

@@ -5,9 +5,9 @@ type Run = typeof schema.runs.$inferSelect;
 type CredentialRow = typeof schema.credentials.$inferSelect;
 
 // DD/MM/YYYY HH:MM
-function fmtDate(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+function fmtDate(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
 const NAV = [
@@ -57,7 +57,7 @@ export function RunsPage({ runs }: { runs: Run[] }) {
         </a>
       </div>
       <p class="sub">
-        {runs.length} runs · {new Set(runs.map((r) => r.repo)).size} repos
+        {runs.length} runs · {new Set(runs.map((run) => run.repo)).size} repos
       </p>
       <table>
         <tr>
@@ -67,32 +67,32 @@ export function RunsPage({ runs }: { runs: Run[] }) {
           <th>Timing</th>
           <th></th>
         </tr>
-        {runs.map((r) => (
+        {runs.map((run) => (
           <tr>
             <td>
-              <a href={`https://github.com/${r.repo}/pull/${r.prNumber}`}>
-                {r.repo}#{r.prNumber}
+              <a href={`https://github.com/${run.repo}/pull/${run.prNumber}`}>
+                {run.repo}#{run.prNumber}
               </a>
-              <div class="mono muted">{r.model}</div>
+              <div class="mono muted">{run.model}</div>
             </td>
-            <td class="mono">{r.mode}</td>
+            <td class="mono">{run.mode}</td>
             <td>
-              <StatusCell status={r.status} />
-              {r.error ? (
+              <StatusCell status={run.status} />
+              {run.error ? (
                 <details>
                   <summary class="mono muted">error</summary>
-                  <div class="mono muted">{r.error}</div>
+                  <div class="mono muted">{run.error}</div>
                 </details>
               ) : null}
             </td>
             <td class="mono">
-              {r.createdAt.toISOString().slice(0, 16).replace("T", " ")}
-              {r.finishedAt ? ` → ${r.finishedAt.toISOString().slice(11, 16)}` : ""}
+              {run.createdAt.toISOString().slice(0, 16).replace("T", " ")}
+              {run.finishedAt ? ` → ${run.finishedAt.toISOString().slice(11, 16)}` : ""}
             </td>
             <td>
-              <a href={`/runs/${r.id}`}>video</a>
-              {r.status === "failed" || r.status === "error" || r.status === "partial" ? (
-                <form method="post" action={`/runs/${r.id}/retry`} style="display:inline;margin-left:0.75rem">
+              <a href={`/runs/${run.id}`}>video</a>
+              {run.status === "failed" || run.status === "error" || run.status === "partial" ? (
+                <form method="post" action={`/runs/${run.id}/retry`} style="display:inline;margin-left:0.75rem">
                   <button class="link">retry</button>
                 </form>
               ) : null}
@@ -185,39 +185,39 @@ export function ModelsPage(props: {
         <legend>Active model</legend>
         <form method="post" action="/models/active">
           <select name="model">
-            {props.providers.flatMap((p) =>
-              p.models.map((m) => (
+            {props.providers.flatMap((provider) =>
+              provider.models.map((model) => (
                 <option
-                  value={`${p.id}/${m}`}
-                  selected={props.active?.providerId === p.id && props.active?.model === m}
+                  value={`${provider.id}/${model}`}
+                  selected={props.active?.providerId === provider.id && props.active?.model === model}
                 >
-                  {p.id} / {m}
+                  {provider.id} / {model}
                 </option>
               )),
             )}
           </select>{" "}
           <select name="credentialId">
-            {props.creds.map((c) => (
-              <option value={c.id} selected={props.active?.credentialId === c.id}>
-                {c.providerId} {c.kind} ({c.id.slice(0, 8)}) — {fmtDate(c.createdAt)}
+            {props.creds.map((cred) => (
+              <option value={cred.id} selected={props.active?.credentialId === cred.id}>
+                {cred.providerId} {cred.kind} ({cred.id.slice(0, 8)}) — {fmtDate(cred.createdAt)}
               </option>
             ))}
           </select>{" "}
           <button>Set active</button>
         </form>
       </fieldset>
-      {props.providers.map((p) => (
+      {props.providers.map((provider) => (
         <fieldset>
-          <legend>{p.id}</legend>
-          <p>Models: {p.models.join(", ")}</p>
+          <legend>{provider.id}</legend>
+          <p>Models: {provider.models.join(", ")}</p>
           <form method="post" action="/models/credential">
-            <input type="hidden" name="providerId" value={p.id} />
+            <input type="hidden" name="providerId" value={provider.id} />
             <input name="apiKey" type="password" placeholder="API key" size={40} />{" "}
             <button>Save API key</button>
           </form>
-          {p.oauth ? (
+          {provider.oauth ? (
             <p>
-              <a href={`/oauth/start?provider=${p.id}`}>Connect with OAuth</a>
+              <a href={`/oauth/start?provider=${provider.id}`}>Connect with OAuth</a>
             </p>
           ) : null}
         </fieldset>
@@ -330,17 +330,17 @@ export function SettingsPage({ cfg, notice }: { cfg: Config; notice?: string }) 
         <fieldset>
           <legend>Preview login credentials (per repo, used by the agent if the preview asks to log in)</legend>
           {cfg.repos.map((repo) => {
-            const l: PreviewLogin | undefined = cfg.previewLogins[repo];
+            const login: PreviewLogin | undefined = cfg.previewLogins[repo];
             return (
               <p>
                 <strong>{repo}</strong>
                 <br />
-                <input name={`login_url_${repo}`} placeholder="login URL (optional)" size={40} value={l?.loginUrl} />{" "}
-                <input name={`login_user_${repo}`} placeholder="username" value={l?.username} />{" "}
+                <input name={`login_url_${repo}`} placeholder="login URL (optional)" size={40} value={login?.loginUrl} />{" "}
+                <input name={`login_user_${repo}`} placeholder="username" value={login?.username} />{" "}
                 <input
                   name={`login_pass_${repo}`}
                   type="password"
-                  placeholder={l ? "(unchanged)" : "password"}
+                  placeholder={login ? "(unchanged)" : "password"}
                 />
               </p>
             );
