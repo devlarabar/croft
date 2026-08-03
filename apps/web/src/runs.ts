@@ -21,6 +21,7 @@ export async function startRun(opts: {
   prNumber: number;
   mode: RunMode;
   previewUrl?: string;
+  freshPlan?: boolean;
 }): Promise<StartRunResult> {
   const cfg = await getConfig();
   if (!cfg.activeModel) throw new Error("No active model configured — set one on the Models page.");
@@ -29,7 +30,15 @@ export async function startRun(opts: {
   // Row first: a job that never launches is a visible error, not a run in limbo.
   const [run] = await db
     .insert(schema.runs)
-    .values({ repo: opts.repo, prNumber: opts.prNumber, mode: opts.mode, providerId, model, credentialId })
+    .values({
+      repo: opts.repo,
+      prNumber: opts.prNumber,
+      mode: opts.mode,
+      freshPlan: opts.freshPlan ?? false,
+      providerId,
+      model,
+      credentialId,
+    })
     .returning();
   const runId = run!.id;
 

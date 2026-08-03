@@ -109,6 +109,7 @@ app.post("/runs", async (c) => {
       prNumber: Number(num),
       mode: "test",
       previewUrl: String(form.get("previewUrl") ?? "") || undefined,
+      freshPlan: form.get("freshPlan") === "on",
     });
     if (!result.started) return c.redirect(`/new?error=${encodeURIComponent(result.reason!)}`);
   } catch (err) {
@@ -126,6 +127,7 @@ app.post("/runs/:id/retry", async (c) => {
     prNumber: run.prNumber,
     mode: run.mode,
     previewUrl: run.previewUrl ?? undefined,
+    freshPlan: run.freshPlan,
   });
   if (!result.started) return c.redirect(`/new?error=${encodeURIComponent(result.reason!)}`);
   return c.redirect("/runs");

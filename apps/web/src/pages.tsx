@@ -148,6 +148,12 @@ export function NewRunPage({ prs, error }: { prs: OpenPr[]; error?: string }) {
           </p>
           <p>
             <label>
+              <input type="checkbox" name="freshPlan" /> Generate a fresh test plan from the diff
+              (ignore any plan in the PR body)
+            </label>
+          </p>
+          <p>
+            <label>
               Preview URL override (optional — otherwise discovered from the PR's "preview deployment" comment)
               <br />
               <input name="previewUrl" type="url" size={60} />

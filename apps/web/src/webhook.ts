@@ -68,8 +68,9 @@ export async function handleWebhook(c: Context): Promise<Response> {
   if (!pr.head.repo || pr.head.repo.full_name !== repo) return c.text("fork PR", 200);
 
   const command = match[1]!.trim();
-  if (/^test$/i.test(command)) {
-    await startRun({ repo, prNumber: payload.issue.number, mode: "test" });
+  const testCmd = command.match(/^test(-fresh-plan)?$/i);
+  if (testCmd) {
+    await startRun({ repo, prNumber: payload.issue.number, mode: "test", freshPlan: !!testCmd[1] });
   } else {
     const answer = await answerQuestion(repo, payload.issue.number, command);
     await postPrComment(repo, payload.issue.number, answer);

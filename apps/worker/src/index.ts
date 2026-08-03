@@ -101,7 +101,8 @@ async function main() {
   // Test plan: PR body section, else generated from the diff. A body plan
   // that is just a CI report ("tests pass", "typecheck clean") with nothing
   // for a reviewer to do is discarded so a plan is generated from the diff.
-  let plan = extractTestPlan(pr.body);
+  // freshPlan skips the PR body entirely and always generates from the diff.
+  let plan = run.freshPlan ? null : extractTestPlan(pr.body);
   let generatedPlan: string | null = null;
   if (plan) {
     const verdict = (
