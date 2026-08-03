@@ -11,6 +11,7 @@ export function formatComment(opts: {
   generatedPlan: string | null;
 }): string {
   const lines: string[] = [];
+  let leftoverScreenshots = opts.screenshots;
   const heading =
     opts.status === "passed"
       ? "## Croft test run: ✅ passed"
@@ -29,11 +30,22 @@ export function formatComment(opts: {
   if (opts.report) {
     if (!opts.report.steps.length) lines.push(opts.report.summary, "");
     if (opts.report.steps.length) {
-      lines.push("| Step | Result | Notes |", "| --- | --- | --- |");
+      const byName = new Map(opts.screenshots.map((s) => [s.name, s.url]));
+      const referenced = new Set<string>();
+      lines.push("| Step | Result | Notes | Screenshots |", "| --- | --- | --- | --- |");
       for (const s of opts.report.steps) {
-        lines.push(`| ${s.step.replaceAll("|", "\\|")} | ${ICONS[s.status]} ${s.status.replace("_", " ")} | ${(s.notes ?? "").replaceAll("|", "\\|")} |`);
+        const cell = (s.screenshots ?? [])
+          .filter((name) => byName.has(name))
+          .map((name) => {
+            referenced.add(name);
+            const url = byName.get(name)!;
+            return `<a href="${url}"><img src="${url}" width="120" alt="${name}"></a>`;
+          })
+          .join(" ");
+        lines.push(`| ${s.step.replaceAll("|", "\\|")} | ${ICONS[s.status]} ${s.status.replace("_", " ")} | ${(s.notes ?? "").replaceAll("|", "\\|")} | ${cell} |`);
       }
       lines.push("");
+      leftoverScreenshots = opts.screenshots.filter((s) => !referenced.has(s.name));
     }
   }
   if (opts.generatedPlan) {
@@ -46,10 +58,10 @@ export function formatComment(opts: {
       "",
     );
   }
-  if (opts.screenshots.length) {
-    lines.push("### Screenshots", "");
-    for (const s of opts.screenshots) lines.push(`![${s.name}](${s.url})`);
-    lines.push("");
+  if (leftoverScreenshots.length) {
+    lines.push("<details><summary>Other screenshots</summary>", "");
+    for (const s of leftoverScreenshots) lines.push(`![${s.name}](${s.url})`);
+    lines.push("", "</details>", "");
   }
   lines.push(`▶️ [Watch the run video](${opts.runUrl})`);
   return lines.join("\n");

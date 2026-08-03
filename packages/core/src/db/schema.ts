@@ -24,6 +24,7 @@ export interface StepResult {
   step: string;
   status: "pass" | "fail" | "not_reached";
   notes?: string;
+  screenshots?: string[]; // names of screenshots taken during this step
 }
 
 export interface RunReport {

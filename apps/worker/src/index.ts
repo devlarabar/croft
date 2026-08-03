@@ -37,6 +37,7 @@ const reportSchema = z.object({
       step: z.string(),
       status: z.enum(["pass", "fail", "not_reached"]),
       notes: z.string().optional(),
+      screenshots: z.array(z.string()).optional(),
     }),
   ),
 });
@@ -64,6 +65,12 @@ const reportToolDef = {
               type: "string",
               description:
                 "What you observed, in one concise sentence. No filler like 'successfully' and no restating the step text.",
+            },
+            screenshots: {
+              type: "array",
+              items: { type: "string" },
+              description:
+                "Names of the screenshots you took while performing this step (the saved names, e.g. '03-step2-norway-selected').",
             },
           },
           required: ["step", "status"],
