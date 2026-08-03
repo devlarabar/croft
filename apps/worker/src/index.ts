@@ -23,6 +23,7 @@ import {
 } from "@croft/core";
 import type { AgentTool, ChatMessage } from "@croft/core";
 import { openBrowserSession } from "./browser.js";
+import { makeHttpTool } from "./http.js";
 import { testSystemPrompt } from "./prompt.js";
 import { formatComment } from "./report.js";
 
@@ -156,7 +157,7 @@ async function main() {
       return [{ type: "text", text: "Report recorded." }];
     },
   };
-  const tools = [...session.tools, reportTool];
+  const tools = [...session.tools, makeHttpTool(PREVIEW_URL), reportTool];
 
   const login = cfg.previewLogins[run.repo];
   const system = testSystemPrompt({
