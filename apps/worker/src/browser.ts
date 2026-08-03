@@ -4,16 +4,21 @@ import { z } from "zod";
 import { uploadArtifact } from "@croft/core/s3";
 import type { AgentTool } from "@croft/core/llm/loop";
 
-// gVisor: /tmp is memory-backed and counts against the job's 2 GB — record to
-// the image's own filesystem instead.
-const ARTIFACTS_DIR = process.env.ARTIFACTS_DIR ?? "/artifacts";
-
 export interface Screenshot {
   name: string;
   url: string;
 }
 
-export async function openBrowserSession(runId: string) {
+export type SaveArtifact = (
+  key: string,
+  body: Buffer,
+  contentType: "image/png" | "video/webm",
+) => Promise<string>;
+
+export async function openBrowserSession(runId: string, save: SaveArtifact = uploadArtifact) {
+  // gVisor: /tmp is memory-backed and counts against the job's 2 GB — record to
+  // the image's own filesystem instead.
+  const ARTIFACTS_DIR = process.env.ARTIFACTS_DIR ?? "/artifacts";
   const browser = await chromium.launch();
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
@@ -98,7 +103,7 @@ export async function openBrowserSession(runId: string) {
         const name = `${String(screenshots.length + 1).padStart(2, "0")}-${(args as { name: string }).name}`;
         // Full-resolution PNG to Object Storage for the report...
         const png = await page.screenshot({ type: "png" });
-        const url = await uploadArtifact(`${runId}/${name}.png`, png, "image/png");
+        const url = await save(`${runId}/${name}.png`, png, "image/png");
         screenshots.push({ name, url });
         // ...JPEG to the model — vision tokens are the dominant per-run cost.
         const jpeg = await page.screenshot({ type: "jpeg", quality: 50 });
@@ -117,10 +122,10 @@ export async function openBrowserSession(runId: string) {
     async close(): Promise<string | null> {
       await context.close();
       await browser.close();
-      const webm = (await readdir(ARTIFACTS_DIR)).find((f) => f.endsWith(".webm"));
+      const webm = (await readdir(ARTIFACTS_DIR)).find((file) => file.endsWith(".webm"));
       if (!webm) return null;
       const path = `${ARTIFACTS_DIR}/${webm}`;
-      const url = await uploadArtifact(`${runId}/run.webm`, await readFile(path), "video/webm");
+      const url = await save(`${runId}/run.webm`, await readFile(path), "video/webm");
       await unlink(path);
       return url;
     },
