@@ -336,6 +336,19 @@ export function SettingsPage({ cfg, notice }: { cfg: Config; notice?: string }) 
           })}
           <p>Add a repo to the allow-list and save to configure its login here.</p>
         </fieldset>
+        <fieldset>
+          <legend>Repo context (Markdown, given to the agent for runs in that repo)</legend>
+          {cfg.repos.map((repo) => (
+            <p>
+              <strong>{repo}</strong>
+              <br />
+              <textarea name={`context_${repo}`} rows={6} cols={70}>
+                {cfg.repoContext[repo] ?? ""}
+              </textarea>
+            </p>
+          ))}
+          <p>Add a repo to the allow-list and save to configure its context here.</p>
+        </fieldset>
         <button>Save</button>
       </form>
       <p>

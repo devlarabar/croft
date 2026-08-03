@@ -288,7 +288,10 @@ app.post("/settings", async (c) => {
     .map((s) => s.trim())
     .filter(Boolean);
   const previewLogins: Record<string, PreviewLogin> = {};
+  const repoContext: Record<string, string> = {};
   for (const repo of repos) {
+    const context = String(form.get(`context_${repo}`) ?? "").trim();
+    if (context) repoContext[repo] = context;
     const username = String(form.get(`login_user_${repo}`) ?? "").trim();
     const password = String(form.get(`login_pass_${repo}`) ?? "");
     const loginUrl = String(form.get(`login_url_${repo}`) ?? "").trim() || undefined;
@@ -311,6 +314,7 @@ app.post("/settings", async (c) => {
       .map((s) => s.trim())
       .filter(Boolean),
     previewLogins,
+    repoContext,
   });
   return c.redirect("/settings?notice=Saved");
 });
