@@ -78,7 +78,12 @@ export function RunsPage({ runs }: { runs: Run[] }) {
             <td class="mono">{r.mode}</td>
             <td>
               <StatusCell status={r.status} />
-              {r.error ? <div class="mono muted">{r.error}</div> : null}
+              {r.error ? (
+                <details>
+                  <summary class="mono muted">error</summary>
+                  <div class="mono muted">{r.error}</div>
+                </details>
+              ) : null}
             </td>
             <td class="mono">
               {r.createdAt.toISOString().slice(0, 16).replace("T", " ")}
