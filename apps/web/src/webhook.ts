@@ -39,7 +39,7 @@ export async function handleWebhook(c: Context): Promise<Response> {
   };
   if (payload.action !== "created" || !payload.issue.pull_request) return c.text("ignored", 200);
 
-  const match = payload.comment.body.trim().match(/^@croft\s+([\s\S]+)/i);
+  const match = payload.comment.body.trim().match(/^@(?:agent-)?croft\s+([\s\S]+)/i);
   if (!match) return c.text("ignored", 200);
 
   const cfg = await getConfig();

@@ -15,7 +15,7 @@ export interface StartRunResult {
   reason?: string;
 }
 
-// Shared by UI "Run" and the `@croft test` webhook: one code path.
+// Shared by UI "Run" and the comment webhook: one code path.
 export async function startRun(opts: {
   repo: string;
   prNumber: number;
