@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "repo_context" jsonb DEFAULT '{}'::jsonb NOT NULL;

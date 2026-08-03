@@ -104,4 +104,6 @@ export const config = pgTable("config", {
     .$type<Record<string, PreviewLogin>>()
     .notNull()
     .default({}),
+  // Markdown notes about each repo, injected into the agent's prompts.
+  repoContext: jsonb("repo_context").$type<Record<string, string>>().notNull().default({}),
 });
