@@ -27,6 +27,16 @@ jobs:
           docker build --platform linux/amd64 -f apps/worker/Dockerfile -t $REGISTRY/worker:${{ github.sha }} .
           docker push $REGISTRY/worker:${{ github.sha }}
 
+      # Migrate before deploy: new columns get defaults, so the still-running
+      # old code is unaffected, and the new code never sees an old schema.
+      - name: Run database migrations
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile --ignore-scripts --filter @croft/core
+          pnpm --filter @croft/core migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Deploy web container
         run: |
           curl -fsS -X PATCH \

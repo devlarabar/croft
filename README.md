@@ -69,6 +69,15 @@ RUN_ID=<uuid> PR_NUMBER=<n> PREVIEW_URL=<url> \
 ```
 (with the same `DATABASE_URL`/S3/`TOKEN_ENC_KEY` env as dev.sh exports.)
 
+## Migrations
+
+CI runs migrations against prod on every deploy (needs the `DATABASE_URL`
+Actions secret). To run them manually:
+
+```sh
+DATABASE_URL=<prod-connection-string> pnpm --filter @croft/core migrate
+```
+
 ## Deploy
 
 Provisioning (registry, DB, bucket, container, job definition, GitHub App,
@@ -76,4 +85,4 @@ billing alert) is manual — steps in PLAN.md §Scaleway deployment. CI
 (`.github/workflows/deploy.yml`) builds both images on push to `main`, pushes
 them to `rg.fr-par.scw.cloud/croft`, redeploys the web container and points the
 job definition at the new worker tag. Actions secrets: `SCW_SECRET_KEY`,
-`SCW_CONTAINER_ID`, `SCW_JOB_DEFINITION_ID`.
+`SCW_CONTAINER_ID`, `SCW_JOB_DEFINITION_ID`, `DATABASE_URL`.
