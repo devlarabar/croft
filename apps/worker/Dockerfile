@@ -10,6 +10,8 @@ COPY apps/worker/package.json apps/worker/
 # --ignore-scripts: dep postinstalls (esbuild binary, playwright browser
 # download) aren't needed — Chromium is installed explicitly below.
 RUN pnpm install --frozen-lockfile --ignore-scripts
+# skills/test-plan.md is codegen input for @croft/core's build.
+COPY skills skills
 COPY packages/core packages/core
 COPY apps/worker apps/worker
 RUN pnpm --filter @croft/core build && pnpm --filter @croft/worker build
