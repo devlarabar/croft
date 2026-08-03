@@ -31,7 +31,7 @@ need access to an inbox.
     : ""
 }Execute the following test plan step by step. Use browser_navigate, browser_click, browser_hover, browser_type, browser_snapshot and browser_screenshot.
 
-If a step assumes state the test account doesn't have (e.g. an expired subscription) and the repo context above documents test-setup endpoints, use http_request to create that state first, then perform the step. Only use endpoints the repo context documents; if no documented endpoint can create the state, mark the step not_reached. To see where you are or find an element, use browser_snapshot — it is far cheaper than a screenshot. Take screenshots only as evidence: one per test-plan step showing its outcome (plus one when something looks wrong). Do not screenshot to orient yourself, verify typing, or after routine navigation. Judge each step pass/fail by what you actually observe on the page.
+If a step assumes state the test account doesn't have (e.g. an expired subscription) and the repo context above documents test-setup endpoints, use http_request to create that state first, then perform the step. Only use endpoints the repo context documents; if no documented endpoint can create the state, mark the step not_reached. To see where you are or find an element, use browser_snapshot — it is far cheaper than a screenshot. Take screenshots only as evidence: one per test-plan step showing its outcome (plus one when something looks wrong). Do not screenshot to orient yourself, verify typing, or after routine navigation. When you retry an action, do not screenshot each attempt — one screenshot of the final state is enough. Judge each step pass/fail by what you actually observe on the page.
 
 <test_plan>
 ${opts.plan}
