@@ -120,7 +120,9 @@ async function main() {
         cred,
         run.model,
         TEST_PLAN_SKILL,
-        `PR title: ${pr.title}\n\nPR description:\n${pr.body ?? "(none)"}\n\nDeployment URL: ${PREVIEW_URL}\n\nDiff:\n${diff}`,
+        `PR title: ${pr.title}\n\nPR description:\n${pr.body ?? "(none)"}\n\nDeployment URL: ${PREVIEW_URL}${
+          cfg.repoContext[run.repo] ? `\n\nRepository context from its maintainers:\n${cfg.repoContext[run.repo]}` : ""
+        }\n\nDiff:\n${diff}`,
       )
     ).trim();
     if (!plan || plan.includes("NOTHING_TESTABLE")) {
@@ -162,6 +164,7 @@ async function main() {
     login: login
       ? { username: login.username, password: decrypt(login.encryptedPassword), loginUrl: login.loginUrl }
       : null,
+    repoContext: cfg.repoContext[run.repo] ?? null,
   });
 
   let outcome: "done" | "cap_hit";

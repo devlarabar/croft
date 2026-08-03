@@ -2,12 +2,22 @@ export function testSystemPrompt(opts: {
   previewUrl: string;
   plan: string;
   login: { username: string; password: string; loginUrl?: string } | null;
+  repoContext: string | null;
 }): string {
   return `You are Croft, an agent that tests a pull request against its preview deployment using browser tools.
 
 Preview deployment: ${opts.previewUrl}
 
 ${
+  opts.repoContext
+    ? `Background on this repository, provided by its maintainers:
+<repo_context>
+${opts.repoContext}
+</repo_context>
+
+`
+    : ""
+}${
   opts.login
     ? `If the app asks you to log in, use these credentials:
 - Login page: ${opts.login.loginUrl ?? "the app's login form"}
