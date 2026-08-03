@@ -124,7 +124,9 @@ app.post("/runs", async (c) => {
 app.post("/runs/:id/retry", async (c) => {
   const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, c.req.param("id")));
   if (!run) return c.notFound();
-  if (run.status !== "failed" && run.status !== "error") return c.text("run is not failed", 400);
+  if (run.status !== "failed" && run.status !== "error" && run.status !== "partial") {
+    return c.text("run is not retryable", 400);
+  }
   const result = await startRun({
     repo: run.repo,
     prNumber: run.prNumber,
