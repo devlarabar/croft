@@ -103,6 +103,34 @@ td {
     vertical-align: top;
 }
 
+.runs-table {
+    table-layout: fixed;
+}
+
+.runs-table th:nth-child(1) {
+    width: 34%;
+}
+
+.runs-table th:nth-child(2) {
+    width: 10%;
+}
+
+.runs-table th:nth-child(3) {
+    width: 26%;
+}
+
+.runs-table th:nth-child(4) {
+    width: 18%;
+}
+
+.runs-table th:nth-child(5) {
+    width: 12%;
+}
+
+.runs-table td {
+    overflow-wrap: break-word;
+}
+
 th {
     padding-top: 0;
 }
@@ -192,6 +220,10 @@ legend {
 .status-cap_hit {
     background: #ece4f7;
     color: #7c3aed;
+}
+
+summary {
+    cursor: pointer;
 }
 
 video {

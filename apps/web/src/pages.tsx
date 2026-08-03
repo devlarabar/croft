@@ -59,7 +59,7 @@ export function RunsPage({ runs }: { runs: Run[] }) {
       <p class="sub">
         {runs.length} runs · {new Set(runs.map((run) => run.repo)).size} repos
       </p>
-      <table>
+      <table class="runs-table">
         <tr>
           <th>Pull request</th>
           <th>Mode</th>
