@@ -101,8 +101,16 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
       schema: z.object({ selector: z.string(), text: z.string() }),
       async execute(args) {
         const { selector, text } = args as { selector: string; text: string };
-        await page.fill(selector, text, { timeout: 10_000 });
-        return [{ type: "text", text: `Typed into ${selector}` }];
+        // fill() sets the value without keystrokes, which segmented/OTP inputs
+        // ignore — fall back to clicking and typing real key events.
+        try {
+          await page.fill(selector, text, { timeout: 10_000 });
+          if ((await page.inputValue(selector)) === text)
+            return [{ type: "text", text: `Typed into ${selector}` }];
+        } catch {}
+        await page.click(selector, { timeout: 10_000 });
+        await page.keyboard.type(text, { delay: 25 });
+        return [{ type: "text", text: `Typed into ${selector} via keystrokes` }];
       },
     },
     {
