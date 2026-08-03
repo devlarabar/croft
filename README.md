@@ -69,6 +69,28 @@ RUN_ID=<uuid> PR_NUMBER=<n> PREVIEW_URL=<url> \
 ```
 (with the same `DATABASE_URL`/S3/`TOKEN_ENC_KEY` env as dev.sh exports.)
 
+## Local ad-hoc mode
+
+With the dev stack running (`pnpm dev`), one request tests any URL against a
+supplied plan — the route only exists when `DEV_NO_AUTH=1`:
+
+```sh
+curl -N localhost:3000/api/local-runs -d '{
+  "url": "http://localhost:8081",
+  "plan": "1. Open the front page\n2. ...",
+  "context": "optional repo context / test-setup endpoints",
+  "login": { "username": "u", "password": "p", "loginUrl": "optional" }
+}'
+```
+
+The response streams the run's events as NDJSON (`assistant_text`,
+`tool_call`, `tool_result`, `video`, then a final `result` line with the
+report and the tmp dir holding screenshots + video). The model and tool-call
+cap are croft's configured defaults; no run row is written, and the login
+credentials only exist in the spawned worker's env. Note the `http_request`
+tool is scoped to the target's host — for `localhost` URLs that means
+same-host only.
+
 ## Migrations
 
 CI runs migrations against prod on every deploy (needs the `DATABASE_URL`
