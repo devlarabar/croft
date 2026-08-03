@@ -39,6 +39,8 @@ export const runs = pgTable("runs", {
   repo: text("repo").notNull(), // "owner/name"
   prNumber: integer("pr_number").notNull(),
   mode: text("mode").$type<RunMode>().notNull(),
+  // Generate a plan from the diff without looking for one in the PR body.
+  freshPlan: boolean("fresh_plan").notNull().default(false),
   status: text("status").$type<RunStatus>().notNull().default("queued"),
   previewUrl: text("preview_url"),
   providerId: text("provider_id").notNull(),
