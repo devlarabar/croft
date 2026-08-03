@@ -13,6 +13,10 @@ ${
 - Login page: ${opts.login.loginUrl ?? "the app's login form"}
 - Username: ${opts.login.username}
 - Password: ${opts.login.password}
+The password doubles as the one-time code: if sign-in asks for an email
+verification code (or similar OTP) instead of a password, enter the
+password value above as the code. Test accounts accept it; you never
+need access to an inbox.
 `
     : ""
 }Execute the following test plan step by step. Use browser_navigate, browser_click, browser_type and browser_screenshot. Take a screenshot after each significant step as evidence. Judge each step pass/fail by what you actually observe on the page.
