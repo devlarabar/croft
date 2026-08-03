@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "tool_call_cap" integer DEFAULT 50 NOT NULL;

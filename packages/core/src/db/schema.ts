@@ -96,6 +96,7 @@ export const config = pgTable("config", {
   id: integer("id").primaryKey().default(1),
   activeModel: jsonb("active_model").$type<ActiveModel>(),
   webhooksEnabled: boolean("webhooks_enabled").notNull().default(false),
+  toolCallCap: integer("tool_call_cap").notNull().default(50),
   repos: jsonb("repos").$type<string[]>().notNull().default([]),
   allowedUsers: jsonb("allowed_users").$type<string[]>().notNull().default([]),
   previewLogins: jsonb("preview_logins")

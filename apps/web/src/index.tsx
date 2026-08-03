@@ -301,8 +301,10 @@ app.post("/settings", async (c) => {
       previewLogins[repo] = existing;
     }
   }
+  const toolCallCap = Number(form.get("toolCallCap"));
   await updateConfig({
     webhooksEnabled: form.get("webhooksEnabled") === "on",
+    toolCallCap: Number.isInteger(toolCallCap) && toolCallCap > 0 ? toolCallCap : cfg.toolCallCap,
     repos,
     allowedUsers: String(form.get("allowedUsers") ?? "")
       .split("\n")

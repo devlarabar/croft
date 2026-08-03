@@ -170,7 +170,7 @@ async function main() {
       system,
       messages: initial,
       tools,
-      toolCallCap: 50,
+      toolCallCap: cfg.toolCallCap,
       onEvent: emit,
     });
     outcome = result.outcome;

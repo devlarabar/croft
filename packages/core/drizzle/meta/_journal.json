@@ -15,6 +15,13 @@
       "when": 1785402525669,
       "tag": "0001_cultured_pete_wisdom",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785745905421,
+      "tag": "0002_dashing_violations",
+      "breakpoints": true
     }
   ]
 }

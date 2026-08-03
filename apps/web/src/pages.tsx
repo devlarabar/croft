@@ -298,6 +298,13 @@ export function SettingsPage({ cfg, notice }: { cfg: Config; notice?: string }) 
           </label>
         </fieldset>
         <fieldset>
+          <legend>Run limits</legend>
+          <label>
+            Tool-call budget cap per run{" "}
+            <input type="number" name="toolCallCap" min={1} value={String(cfg.toolCallCap)} />
+          </label>
+        </fieldset>
+        <fieldset>
           <legend>Repo allow-list (one owner/repo per line)</legend>
           <textarea name="repos" rows={4} cols={50}>
             {cfg.repos.join("\n")}
