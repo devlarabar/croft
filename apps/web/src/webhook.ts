@@ -1,6 +1,6 @@
 import { Webhooks } from "@octokit/webhooks";
 import type { Context } from "hono";
-import { db, getConfig, getPr, postPrComment, schema } from "@croft/core";
+import { addEyesReaction, db, getConfig, getPr, postPrComment, schema } from "@croft/core";
 import { answerQuestion } from "./qa.js";
 import { startRun } from "./runs.js";
 
@@ -34,7 +34,7 @@ export async function handleWebhook(c: Context): Promise<Response> {
   const payload = JSON.parse(body) as {
     action: string;
     issue: { number: number; pull_request?: object };
-    comment: { body: string; author_association: string; user: { login: string } };
+    comment: { id: number; body: string; author_association: string; user: { login: string } };
     repository: { full_name: string };
   };
   if (payload.action !== "created" || !payload.issue.pull_request) return c.text("ignored", 200);
@@ -43,9 +43,6 @@ export async function handleWebhook(c: Context): Promise<Response> {
   if (!match) return c.text("ignored", 200);
 
   const cfg = await getConfig();
-  // Master toggle: still ACK 200, take no action.
-  if (!cfg.webhooksEnabled) return c.text("webhooks disabled", 200);
-
   const repo = payload.repository.full_name;
   if (!cfg.repos.includes(repo)) return c.text("repo not allow-listed", 200);
 
@@ -56,6 +53,15 @@ export async function handleWebhook(c: Context): Promise<Response> {
     TRUSTED_ASSOCIATIONS.includes(payload.comment.author_association) ||
     cfg.allowedUsers.includes(commenter);
   if (!allowed) return c.text("commenter not allowed", 200);
+
+  // Ack receipt on the triggering comment before doing any work.
+  await addEyesReaction(repo, payload.comment.id);
+
+  // Master toggle: say so instead of silently ignoring. No LLM calls.
+  if (!cfg.webhooksEnabled) {
+    await postPrComment(repo, payload.issue.number, "Webhook actions are disabled.");
+    return c.text("webhooks disabled", 200);
+  }
 
   // Never on PRs from forks.
   const pr = await getPr(repo, payload.issue.number);

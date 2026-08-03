@@ -76,6 +76,22 @@ export async function listPrComments(repo: string, prNumber: number) {
   return data;
 }
 
+// Adding the same reaction twice is idempotent, so retry is safe.
+export async function addEyesReaction(repo: string, commentId: number) {
+  const kit = await octokitFor(repo);
+  const { owner, name } = splitRepo(repo);
+  await withRetry(
+    () =>
+      kit.request("POST /repos/{owner}/{repo}/issues/comments/{comment_id}/reactions", {
+        owner,
+        repo: name,
+        comment_id: commentId,
+        content: "eyes",
+      }),
+    retry3,
+  );
+}
+
 // Comment creation is not idempotent: no retry — create it last, once.
 export async function postPrComment(repo: string, prNumber: number, body: string) {
   const kit = await octokitFor(repo);
