@@ -42,6 +42,7 @@ import {
   setOAuthState,
   setSession,
 } from "./session.js";
+import { handleLocalRun } from "./localrun.js";
 import { handleWebhook } from "./webhook.js";
 
 const app = new Hono();
@@ -54,6 +55,8 @@ app.onError((err, c) => {
 
 // Public endpoints; everything else requires the dashboard session.
 app.post("/api/webhooks/github", handleWebhook);
+// Ad-hoc local runs — the route only exists on the auth-less dev stack.
+if (process.env.DEV_NO_AUTH === "1") app.post("/api/local-runs", handleLocalRun);
 const favicon = readFileSync(new URL("../public/favicon.png", import.meta.url));
 app.get("/favicon.ico", (c) => c.body(favicon, 200, { "Content-Type": "image/png" }));
 const styles = readFileSync(new URL("../public/styles.css", import.meta.url), "utf8");
