@@ -91,6 +91,9 @@ Print only the test plan as numbered steps:
 
 Do not use checkboxes. Do not include a summary or any other sections.
 
+If nothing in the diff is testable, print exactly:
+NOTHING_TESTABLE
+
 ## Calibration
 
 These are the kinds of test plans this skill should produce.
