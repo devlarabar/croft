@@ -17,6 +17,11 @@ export async function openBrowserSession(runId: string) {
   const browser = await chromium.launch();
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
+    // Headless Chromium's default UA contains "HeadlessChrome", which trips
+    // posthog-js's bot filter — feature flags never load and apps render
+    // their no-flags fallback. Present a normal Chrome UA instead.
+    userAgent:
+      "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     // Can't be toggled mid-session: Playwright only finalizes the file when
     // the context closes.
     recordVideo: { dir: ARTIFACTS_DIR, size: { width: 1280, height: 720 } },
