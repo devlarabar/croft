@@ -9,6 +9,7 @@ export function formatComment(opts: {
   screenshots: Screenshot[];
   runUrl: string;
   generatedPlan: string | null;
+  error: string | null;
 }): string {
   const lines: string[] = [];
   let leftoverScreenshots = opts.screenshots;
@@ -26,6 +27,9 @@ export function formatComment(opts: {
       "This run hit its tool-call budget cap before finishing. Results below cover what was reached; remaining steps are marked *not reached* (the app didn't fail — Croft ran out of budget).",
       "",
     );
+  }
+  if (opts.status === "error" && opts.error) {
+    lines.push("<details><summary>Error</summary>", "", "```", opts.error, "```", "", "</details>", "");
   }
   if (opts.report) {
     if (!opts.report.steps.length) lines.push(opts.report.summary, "");

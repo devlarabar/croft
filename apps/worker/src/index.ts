@@ -107,11 +107,8 @@ async function main() {
     emit,
   });
 
-  await setStatus(status, {
-    report,
-    error: report ? null : "agent finished without submitting a report",
-    finishedAt: new Date(),
-  });
+  const error = report ? null : "agent finished without submitting a report";
+  await setStatus(status, { report, error, finishedAt: new Date() });
 
   // A partial run must never masquerade as green: cap_hit → neutral.
   const conclusion = status === "passed" ? "success" : status === "cap_hit" ? "neutral" : "failure";
@@ -126,6 +123,7 @@ async function main() {
       screenshots,
       runUrl: `${WEB_URL}/runs/${RUN_ID}`,
       generatedPlan,
+      error,
     }),
   );
 }
