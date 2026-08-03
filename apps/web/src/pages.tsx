@@ -86,7 +86,7 @@ export function RunsPage({ runs }: { runs: Run[] }) {
             </td>
             <td>
               <a href={`/runs/${r.id}`}>video</a>
-              {r.status === "failed" || r.status === "error" ? (
+              {r.status === "failed" || r.status === "error" || r.status === "partial" ? (
                 <form method="post" action={`/runs/${r.id}/retry`} style="display:inline;margin-left:0.75rem">
                   <button class="link">retry</button>
                 </form>

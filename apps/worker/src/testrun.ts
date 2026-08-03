@@ -143,5 +143,12 @@ export async function executeTestRun(opts: {
   if (outcome === "cap_hit") status = "cap_hit";
   else if (!finalReport) status = "error";
   else if (finalReport.steps.some((step) => step.status === "fail")) status = "failed";
+  else if (
+    finalReport.steps.filter((step) => step.status === "not_reached").length >
+    finalReport.steps.filter((step) => step.status === "pass").length
+  )
+    // Mostly-skipped runs must not read as green: nothing failed, but the
+    // plan was barely exercised.
+    status = "partial";
   return { status, report: finalReport, screenshots: session.screenshots };
 }

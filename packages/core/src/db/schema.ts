@@ -15,6 +15,7 @@ export type RunStatus =
   | "running"
   | "passed"
   | "failed"
+  | "partial"
   | "cap_hit"
   | "error";
 

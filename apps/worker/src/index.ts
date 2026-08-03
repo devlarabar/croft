@@ -110,8 +110,9 @@ async function main() {
   const error = report ? null : "agent finished without submitting a report";
   await setStatus(status, { report, error, finishedAt: new Date() });
 
-  // A partial run must never masquerade as green: cap_hit → neutral.
-  const conclusion = status === "passed" ? "success" : status === "cap_hit" ? "neutral" : "failure";
+  // An incomplete run must never masquerade as green: cap_hit/partial → neutral.
+  const conclusion =
+    status === "passed" ? "success" : status === "cap_hit" || status === "partial" ? "neutral" : "failure";
   await createCheckRun(run.repo, pr.head.sha, conclusion, report?.summary ?? "Run finished without a report.");
   // Comment creation is not idempotent — post it last, once.
   await postPrComment(

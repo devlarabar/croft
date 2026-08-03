@@ -3,6 +3,13 @@ import type { Screenshot } from "./browser.js";
 
 const ICONS = { pass: "✅", fail: "❌", not_reached: "⏭️" } as const;
 
+const HEADINGS: Partial<Record<RunStatus, string>> = {
+  passed: "## Croft test run: ✅ passed",
+  failed: "## Croft test run: ❌ failed",
+  partial: "## Croft test run: ⏭️ partially completed",
+  cap_hit: "## Croft test run: ⏳ stopped at budget cap",
+};
+
 export function formatComment(opts: {
   status: RunStatus;
   report: RunReport | null;
@@ -13,15 +20,13 @@ export function formatComment(opts: {
 }): string {
   const lines: string[] = [];
   let leftoverScreenshots = opts.screenshots;
-  const heading =
-    opts.status === "passed"
-      ? "## Croft test run: ✅ passed"
-      : opts.status === "failed"
-        ? "## Croft test run: ❌ failed"
-        : opts.status === "cap_hit"
-          ? "## Croft test run: ⏳ stopped at budget cap"
-          : "## Croft test run: ⚠️ error";
-  lines.push(heading, "");
+  lines.push(HEADINGS[opts.status] ?? "## Croft test run: ⚠️ error", "");
+  if (opts.status === "partial") {
+    lines.push(
+      "More steps were skipped than passed. Nothing failed, but the run covered only part of the plan — see the notes on the skipped steps.",
+      "",
+    );
+  }
   if (opts.status === "cap_hit") {
     lines.push(
       "This run hit its tool-call budget cap before finishing. Results below cover what was reached; remaining steps are marked *not reached* (the app didn't fail — Croft ran out of budget).",
