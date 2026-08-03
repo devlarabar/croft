@@ -107,6 +107,19 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
     },
     {
       def: {
+        name: "browser_snapshot",
+        description:
+          "Get a text outline (accessibility tree) of the current page: roles, names, and text of visible elements. Much cheaper than a screenshot — use this to orient yourself and find selectors; use browser_screenshot only for visual evidence.",
+        inputSchema: { type: "object", properties: {} },
+      },
+      schema: z.object({}),
+      async execute() {
+        const snapshot = await page.locator("body").ariaSnapshot();
+        return [{ type: "text", text: snapshot }];
+      },
+    },
+    {
+      def: {
         name: "browser_screenshot",
         description:
           "Take a screenshot of the current page. Returns the image and its public URL for the report.",
