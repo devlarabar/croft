@@ -72,6 +72,24 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
     },
     {
       def: {
+        name: "browser_hover",
+        description:
+          "Hover an element without clicking. Give a CSS selector, or text= / role= Playwright selector visible on the page. The mouse stays there until the next click/hover, so screenshot right after to capture hover-only UI.",
+        inputSchema: {
+          type: "object",
+          properties: { selector: { type: "string" } },
+          required: ["selector"],
+        },
+      },
+      schema: z.object({ selector: z.string() }),
+      async execute(args) {
+        const { selector } = args as { selector: string };
+        await page.hover(selector, { timeout: 10_000 });
+        return [{ type: "text", text: `Hovering ${selector}` }];
+      },
+    },
+    {
+      def: {
         name: "browser_type",
         description: "Fill an input matched by a selector with text.",
         inputSchema: {
