@@ -103,7 +103,7 @@ export async function openBrowserSession(runId: string) {
         // ...JPEG to the model — vision tokens are the dominant per-run cost.
         const jpeg = await page.screenshot({ type: "jpeg", quality: 50 });
         return [
-          { type: "text", text: `Screenshot saved: ${url}` },
+          { type: "text", text: `Screenshot saved as "${name}" — use exactly this name in the report. ${url}` },
           { type: "image", mediaType: "image/jpeg", dataBase64: jpeg.toString("base64") },
         ];
       },

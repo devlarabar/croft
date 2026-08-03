@@ -31,11 +31,16 @@ export function formatComment(opts: {
     if (!opts.report.steps.length) lines.push(opts.report.summary, "");
     if (opts.report.steps.length) {
       const byName = new Map(opts.screenshots.map((s) => [s.name, s.url]));
+      // The tool prepends a numeric counter to the model's chosen name; accept
+      // either form so a step's screenshots don't fall through to "other".
+      const resolve = (name: string) =>
+        byName.has(name) ? name : opts.screenshots.find((s) => s.name.endsWith(`-${name}`))?.name;
       const referenced = new Set<string>();
       lines.push("| Step | Result | Notes | Screenshots |", "| --- | --- | --- | --- |");
       for (const s of opts.report.steps) {
         const cell = (s.screenshots ?? [])
-          .filter((name) => byName.has(name))
+          .map(resolve)
+          .filter((name): name is string => name !== undefined)
           .map((name) => {
             referenced.add(name);
             const url = byName.get(name)!;
