@@ -330,22 +330,30 @@ export function SettingsPage({ cfg, notice }: { cfg: Config; notice?: string }) 
         <fieldset>
           <legend>Preview login credentials (per repo, used by the agent if the preview asks to log in)</legend>
           {cfg.repos.map((repo) => {
-            const login: PreviewLogin | undefined = cfg.previewLogins[repo];
+            const logins: PreviewLogin[] = cfg.previewLogins[repo] ?? [];
+            // One row per existing login plus a blank row for adding another;
+            // clearing a row's username deletes that login on save.
+            const rows: (PreviewLogin | undefined)[] = [...logins, undefined];
             return (
               <p>
                 <strong>{repo}</strong>
-                <br />
-                <input name={`login_url_${repo}`} placeholder="login URL (optional)" size={40} value={login?.loginUrl} />{" "}
-                <input name={`login_user_${repo}`} placeholder="username" value={login?.username} />{" "}
-                <input
-                  name={`login_pass_${repo}`}
-                  type="password"
-                  placeholder={login ? "(unchanged)" : "password"}
-                />
+                {rows.map((login, index) => (
+                  <>
+                    <br />
+                    <input name={`login_label_${repo}_${index}`} placeholder="label (optional)" value={login?.label} />{" "}
+                    <input name={`login_url_${repo}_${index}`} placeholder="login URL (optional)" size={40} value={login?.loginUrl} />{" "}
+                    <input name={`login_user_${repo}_${index}`} placeholder="username" value={login?.username} />{" "}
+                    <input
+                      name={`login_pass_${repo}_${index}`}
+                      type="password"
+                      placeholder={login ? "(unchanged)" : "password"}
+                    />
+                  </>
+                ))}
               </p>
             );
           })}
-          <p>Add a repo to the allow-list and save to configure its login here.</p>
+          <p>Add a repo to the allow-list and save to configure its logins here. Give accounts a label so test plans can name them.</p>
         </fieldset>
         <fieldset>
           <legend>Repo context (Markdown, given to the agent for runs in that repo)</legend>

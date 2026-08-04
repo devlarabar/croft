@@ -294,22 +294,25 @@ app.post("/settings", async (ctx) => {
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  const previewLogins: Record<string, PreviewLogin> = {};
+  const previewLogins: Record<string, PreviewLogin[]> = {};
   const repoContext: Record<string, string> = {};
   for (const repo of repos) {
     const context = String(form.get(`context_${repo}`) ?? "").trim();
     if (context) repoContext[repo] = context;
-    const username = String(form.get(`login_user_${repo}`) ?? "").trim();
-    const password = String(form.get(`login_pass_${repo}`) ?? "");
-    const loginUrl = String(form.get(`login_url_${repo}`) ?? "").trim() || undefined;
-    const existing = cfg.previewLogins[repo];
-    if (username && password) {
-      previewLogins[repo] = { username, loginUrl, encryptedPassword: encrypt(password) };
-    } else if (existing && username) {
-      previewLogins[repo] = { ...existing, username, loginUrl };
-    } else if (existing) {
-      previewLogins[repo] = existing;
+    const existing = cfg.previewLogins[repo] ?? [];
+    const logins: PreviewLogin[] = [];
+    // Rows are rendered as existing logins (in order) plus one blank row, so
+    // row index maps to existing[index]. An emptied username deletes the row.
+    for (let index = 0; form.get(`login_user_${repo}_${index}`) !== null; index++) {
+      const username = String(form.get(`login_user_${repo}_${index}`)).trim();
+      if (!username) continue;
+      const password = String(form.get(`login_pass_${repo}_${index}`) ?? "");
+      const label = String(form.get(`login_label_${repo}_${index}`) ?? "").trim() || undefined;
+      const loginUrl = String(form.get(`login_url_${repo}_${index}`) ?? "").trim() || undefined;
+      const encryptedPassword = password ? encrypt(password) : existing[index]?.encryptedPassword;
+      if (encryptedPassword) logins.push({ label, username, loginUrl, encryptedPassword });
     }
+    if (logins.length > 0) previewLogins[repo] = logins;
   }
   const toolCallCap = Number(form.get("toolCallCap"));
   await updateConfig({

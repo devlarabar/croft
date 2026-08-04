@@ -91,6 +91,7 @@ export interface ActiveModel {
 }
 
 export interface PreviewLogin {
+  label?: string;
   loginUrl?: string;
   username: string;
   encryptedPassword: string;
@@ -104,7 +105,7 @@ export const config = pgTable("config", {
   repos: jsonb("repos").$type<string[]>().notNull().default([]),
   allowedUsers: jsonb("allowed_users").$type<string[]>().notNull().default([]),
   previewLogins: jsonb("preview_logins")
-    .$type<Record<string, PreviewLogin>>()
+    .$type<Record<string, PreviewLogin[]>>()
     .notNull()
     .default({}),
   // Markdown notes about each repo, injected into the agent's prompts.

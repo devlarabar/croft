@@ -91,14 +91,17 @@ async function main() {
     await emit("generated_plan", { plan });
   }
 
-  const login = cfg.previewLogins[run.repo];
+  const logins = (cfg.previewLogins[run.repo] ?? []).map((login) => ({
+    label: login.label,
+    username: login.username,
+    password: decrypt(login.encryptedPassword),
+    loginUrl: login.loginUrl,
+  }));
   const { status, report, screenshots } = await executeTestRun({
     runId: RUN_ID,
     previewUrl: PREVIEW_URL,
     plan,
-    login: login
-      ? { username: login.username, password: decrypt(login.encryptedPassword), loginUrl: login.loginUrl }
-      : null,
+    logins,
     repoContext: cfg.repoContext[run.repo] ?? null,
     adapter,
     cred,

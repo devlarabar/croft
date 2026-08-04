@@ -32,13 +32,15 @@ async function main() {
   const repoContext = contextFile ? await readFile(contextFile, "utf8") : null;
 
   const username = process.env.CROFT_LOGIN_USERNAME;
-  const login = username
-    ? {
-        username,
-        password: process.env.CROFT_LOGIN_PASSWORD ?? "",
-        loginUrl: process.env.CROFT_LOGIN_URL,
-      }
-    : null;
+  const logins = username
+    ? [
+        {
+          username,
+          password: process.env.CROFT_LOGIN_PASSWORD ?? "",
+          loginUrl: process.env.CROFT_LOGIN_URL,
+        },
+      ]
+    : [];
 
   const runId = randomUUID();
   const outDir = join(tmpdir(), `croft-${runId}`);
@@ -59,7 +61,7 @@ async function main() {
     runId,
     previewUrl: url,
     plan,
-    login,
+    logins,
     repoContext,
     adapter,
     cred,

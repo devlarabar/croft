@@ -7,6 +7,7 @@ import { openBrowserSession } from "./browser.js";
 import type { SaveArtifact, Screenshot } from "./browser.js";
 import { makeHttpTool } from "./http.js";
 import { testSystemPrompt } from "./prompt.js";
+import type { PromptLogin } from "./prompt.js";
 
 const reportSchema = z.object({
   summary: z.string(),
@@ -63,7 +64,7 @@ export async function executeTestRun(opts: {
   runId: string;
   previewUrl: string;
   plan: string;
-  login: { username: string; password: string; loginUrl?: string } | null;
+  logins: PromptLogin[];
   repoContext: string | null;
   adapter: ProviderAdapter;
   cred: Credential;
@@ -87,7 +88,7 @@ export async function executeTestRun(opts: {
   const system = testSystemPrompt({
     previewUrl: opts.previewUrl,
     plan: opts.plan,
-    login: opts.login,
+    logins: opts.logins,
     repoContext: opts.repoContext,
   });
 

@@ -1,9 +1,24 @@
+export interface PromptLogin {
+  label?: string;
+  username: string;
+  password: string;
+  loginUrl?: string;
+}
+
 export function testSystemPrompt(opts: {
   previewUrl: string;
   plan: string;
-  login: { username: string; password: string; loginUrl?: string } | null;
+  logins: PromptLogin[];
   repoContext: string | null;
 }): string {
+  const loginLines = opts.logins
+    .map(
+      (login) =>
+        `- ${login.label ?? login.username}: username \`${login.username}\`, password \`${login.password}\`${
+          login.loginUrl ? `, login page ${login.loginUrl}` : ""
+        }`,
+    )
+    .join("\n");
   return `You are Croft, an agent that tests a pull request against its preview deployment using browser tools.
 
 Preview deployment: ${opts.previewUrl}
@@ -18,15 +33,14 @@ ${opts.repoContext}
 `
     : ""
 }${
-  opts.login
-    ? `If the app asks you to log in, use these credentials:
-- Login page: ${opts.login.loginUrl ?? "the app's login form"}
-- Username: ${opts.login.username}
-- Password: ${opts.login.password}
-The password doubles as the one-time code: if sign-in asks for an email
-verification code (or similar OTP) instead of a password, enter the
-password value above as the code. Test accounts accept it; you never
-need access to an inbox.
+  opts.logins.length > 0
+    ? `If the app asks you to log in, use one of these test accounts:
+${loginLines}
+If the test plan names a specific account, use that one; otherwise use
+the first. Each password doubles as the one-time code: if sign-in asks
+for an email verification code (or similar OTP) instead of a password,
+enter the account's password value as the code. Test accounts accept
+it; you never need access to an inbox.
 `
     : ""
 }Execute the following test plan step by step. Use browser_navigate, browser_click, browser_hover, browser_type, browser_snapshot and browser_screenshot.
