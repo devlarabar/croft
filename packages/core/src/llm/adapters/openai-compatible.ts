@@ -71,15 +71,16 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
     readonly oauth?: OAuthConfig,
   ) {}
 
-  protected authHeaders(token: string): Record<string, string> {
-    return { authorization: `Bearer ${token}` };
+  // Subclasses whose base URL or auth scheme depends on the credential override this.
+  protected resolve(token: string): { baseUrl: string; headers: Record<string, string> } {
+    return { baseUrl: this.baseUrl, headers: { authorization: `Bearer ${token}` } };
   }
 
   async *chat(req: ChatRequest, cred: Credential): AsyncIterable<ChatEvent> {
-    const token = await cred.getToken();
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+    const { baseUrl, headers } = this.resolve(await cred.getToken());
+    const res = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
-      headers: { "content-type": "application/json", ...this.authHeaders(token) },
+      headers: { "content-type": "application/json", ...headers },
       body: JSON.stringify({
         model: req.model,
         stream: true,

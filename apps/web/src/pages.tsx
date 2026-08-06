@@ -212,8 +212,22 @@ export function ModelsPage(props: {
           <p>Models: {provider.models.join(", ")}</p>
           <form method="post" action="/models/credential">
             <input type="hidden" name="providerId" value={provider.id} />
-            <input name="apiKey" type="password" placeholder="API key" size={40} />{" "}
-            <button>Save API key</button>
+            <input
+              name="apiKey"
+              type="password"
+              placeholder={provider.id === "bedrock" ? "Access key ID" : "API key"}
+              size={40}
+            />{" "}
+            {provider.id === "azure" ? (
+              <input name="resourceName" placeholder="Resource name" size={20} />
+            ) : null}
+            {provider.id === "bedrock" ? (
+              <>
+                <input name="secretAccessKey" type="password" placeholder="Secret access key" size={40} />{" "}
+                <input name="region" placeholder="Region" value="us-east-1" size={12} />
+              </>
+            ) : null}{" "}
+            <button>Save credentials</button>
           </form>
           {provider.oauth ? (
             <p>

@@ -1,4 +1,6 @@
 import { anthropic } from "./adapters/anthropic.js";
+import { azure } from "./adapters/azure.js";
+import { bedrock } from "./adapters/bedrock.js";
 import { openai } from "./adapters/openai.js";
 import type { ProviderAdapter } from "./types.js";
 
@@ -6,6 +8,8 @@ import type { ProviderAdapter } from "./types.js";
 export const PROVIDERS: Record<string, ProviderAdapter> = {
   [anthropic.id]: anthropic,
   [openai.id]: openai,
+  [azure.id]: azure,
+  [bedrock.id]: bedrock,
 };
 
 export function getProvider(id: string): ProviderAdapter {

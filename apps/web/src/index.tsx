@@ -185,10 +185,22 @@ app.post("/models/credential", async (ctx) => {
   const form = await ctx.req.formData();
   const providerId = String(form.get("providerId"));
   getProvider(providerId); // validate
+  const apiKey = String(form.get("apiKey"));
+  // azure/bedrock creds are multi-field; their adapters JSON.parse the blob.
+  let secret = apiKey;
+  if (providerId === "azure") {
+    secret = JSON.stringify({ apiKey, resourceName: String(form.get("resourceName")) });
+  } else if (providerId === "bedrock") {
+    secret = JSON.stringify({
+      accessKeyId: apiKey,
+      secretAccessKey: String(form.get("secretAccessKey")),
+      region: String(form.get("region")),
+    });
+  }
   await db.insert(schema.credentials).values({
     providerId,
     kind: "api_key",
-    encrypted: encrypt(String(form.get("apiKey"))),
+    encrypted: encrypt(secret),
   });
   return ctx.redirect("/models?notice=API+key+saved");
 });
