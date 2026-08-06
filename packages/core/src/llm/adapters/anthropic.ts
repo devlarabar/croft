@@ -43,7 +43,7 @@ function toParts(parts: ContentPart[]): Json[] {
   );
 }
 
-function toWireMessages(messages: ChatMessage[]): Json[] {
+export function toAnthropicMessages(messages: ChatMessage[]): Json[] {
   const out: Json[] = [];
   for (const message of messages) {
     if (message.role === "user") {
@@ -62,6 +62,73 @@ function toWireMessages(messages: ChatMessage[]): Json[] {
     }
   }
   return out;
+}
+
+// Shared body fields for the Anthropic messages API: direct and via Bedrock
+// (which takes the same payload minus model/stream, plus anthropic_version).
+export function anthropicRequestBody(req: ChatRequest, system: string | Json[] | undefined): Json {
+  return {
+    max_tokens: req.maxTokens ?? 8192,
+    ...(system ? { system } : {}),
+    messages: toAnthropicMessages(req.messages),
+    ...(req.tools?.length
+      ? {
+          tools: req.tools.map((tool) => ({
+            name: tool.name,
+            description: tool.description,
+            input_schema: tool.inputSchema,
+          })),
+        }
+      : {}),
+  };
+}
+
+export interface AnthropicStreamEvent {
+  type: string;
+  content_block?: { type: string; id?: string; name?: string };
+  delta?: { type?: string; text?: string; partial_json?: string; stop_reason?: string };
+}
+
+// Turns the Anthropic event stream (however transported) into ChatEvents.
+export async function* anthropicChatEvents(events: AsyncIterable<AnthropicStreamEvent>): AsyncIterable<ChatEvent> {
+  let block: { id: string; name: string; json: string } | null = null;
+  let stopReason: string | null = null;
+  for await (const ev of events) {
+    switch (ev.type) {
+      case "content_block_start":
+        if (ev.content_block?.type === "tool_use") {
+          block = { id: ev.content_block.id!, name: ev.content_block.name!, json: "" };
+        }
+        break;
+      case "content_block_delta":
+        if (ev.delta?.type === "text_delta" && ev.delta.text) {
+          yield { type: "text_delta", text: ev.delta.text };
+        } else if (ev.delta?.type === "input_json_delta" && block) {
+          block.json += ev.delta.partial_json ?? "";
+        }
+        break;
+      case "content_block_stop":
+        if (block) {
+          yield {
+            type: "tool_call",
+            call: { id: block.id, name: block.name, args: block.json ? JSON.parse(block.json) : {} },
+          };
+          block = null;
+        }
+        break;
+      case "message_delta":
+        if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
+        break;
+    }
+  }
+  yield {
+    type: "done",
+    stopReason: stopReason === "tool_use" ? "tool_use" : stopReason === "max_tokens" ? "max_tokens" : "end",
+  };
+}
+
+async function* parsedSse(body: ReadableStream<Uint8Array>): AsyncIterable<AnthropicStreamEvent> {
+  for await (const data of sseData(body)) yield JSON.parse(data) as AnthropicStreamEvent;
 }
 
 class AnthropicAdapter implements ProviderAdapter {
@@ -104,22 +171,7 @@ class AnthropicAdapter implements ProviderAdapter {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: { "content-type": "application/json", "anthropic-version": "2023-06-01", ...auth },
-      body: JSON.stringify({
-        model: req.model,
-        stream: true,
-        max_tokens: req.maxTokens ?? 8192,
-        ...(system ? { system } : {}),
-        messages: toWireMessages(req.messages),
-        ...(req.tools?.length
-          ? {
-              tools: req.tools.map((tool) => ({
-                name: tool.name,
-                description: tool.description,
-                input_schema: tool.inputSchema,
-              })),
-            }
-          : {}),
-      }),
+      body: JSON.stringify({ model: req.model, stream: true, ...anthropicRequestBody(req, system) }),
     });
     if (!res.ok || !res.body) {
       throw new LlmTransportError(
@@ -129,45 +181,7 @@ class AnthropicAdapter implements ProviderAdapter {
       );
     }
 
-    let block: { id: string; name: string; json: string } | null = null;
-    let stopReason: string | null = null;
-    for await (const data of sseData(res.body)) {
-      const ev = JSON.parse(data) as {
-        type: string;
-        content_block?: { type: string; id?: string; name?: string };
-        delta?: { type?: string; text?: string; partial_json?: string; stop_reason?: string };
-      };
-      switch (ev.type) {
-        case "content_block_start":
-          if (ev.content_block?.type === "tool_use") {
-            block = { id: ev.content_block.id!, name: ev.content_block.name!, json: "" };
-          }
-          break;
-        case "content_block_delta":
-          if (ev.delta?.type === "text_delta" && ev.delta.text) {
-            yield { type: "text_delta", text: ev.delta.text };
-          } else if (ev.delta?.type === "input_json_delta" && block) {
-            block.json += ev.delta.partial_json ?? "";
-          }
-          break;
-        case "content_block_stop":
-          if (block) {
-            yield {
-              type: "tool_call",
-              call: { id: block.id, name: block.name, args: block.json ? JSON.parse(block.json) : {} },
-            };
-            block = null;
-          }
-          break;
-        case "message_delta":
-          if (ev.delta?.stop_reason) stopReason = ev.delta.stop_reason;
-          break;
-      }
-    }
-    yield {
-      type: "done",
-      stopReason: stopReason === "tool_use" ? "tool_use" : stopReason === "max_tokens" ? "max_tokens" : "end",
-    };
+    yield* anthropicChatEvents(parsedSse(res.body));
   }
 }
 
