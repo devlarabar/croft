@@ -10,7 +10,8 @@
   "scripts": {
     "build": "node scripts/gen-testplan-skill.mjs && tsc",
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate"
+    "migrate": "drizzle-kit migrate",
+    "rotate-key": "node dist/rotate-key.js"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1103.0",

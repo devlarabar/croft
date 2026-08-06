@@ -65,9 +65,11 @@ visibly, or just create the row and launch by hand):
 ```sh
 RUN_ID=<uuid> PR_NUMBER=<n> PREVIEW_URL=<url> \
   ARTIFACTS_DIR=/tmp/croft-artifacts WEB_URL=http://localhost:3000 \
-  node apps/worker/dist/index.js
+  DEV_NO_AUTH=1 node apps/worker/dist/index.js
 ```
-(with the same `DATABASE_URL`/S3/`TOKEN_ENC_KEY` env as dev.sh exports.)
+(with the same `DATABASE_URL`/S3/`TOKEN_ENC_KEY` env as dev.sh exports;
+`DEV_NO_AUTH=1` is also what lets the well-known dev `TOKEN_ENC_KEY` decrypt —
+outside dev, that key is refused at startup.)
 
 ## Local ad-hoc mode
 
@@ -99,6 +101,20 @@ Actions secret). To run them manually:
 ```sh
 DATABASE_URL=<prod-connection-string> pnpm --filter @croft/core migrate
 ```
+
+## Key rotation
+
+Re-encrypt all stored secrets (credentials, preview-login passwords) under a
+new `TOKEN_ENC_KEY`:
+
+```sh
+DATABASE_URL=<prod> TOKEN_ENC_KEY=<old> NEW_TOKEN_ENC_KEY=<new> \
+  pnpm --filter @croft/core rotate-key
+```
+
+The script is resumable (rows already on the new key are skipped). Afterwards
+set `TOKEN_ENC_KEY` to the new value on the web container and the worker job
+definition — remember `scw` env updates replace the whole map.
 
 ## Deploy
 
