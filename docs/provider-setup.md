@@ -5,6 +5,23 @@ models. Both are pay-per-token with no standing cost. This is the one-time
 cloud-side setup; afterwards you paste the credentials into Croft's
 **Models** page and set the active model.
 
+## Using an existing company setup
+
+If you're borrowing an employer's Azure/AWS accounts (with permission),
+skip the resource creation below — you only need the credential values:
+
+- **Azure**: the resource's API key and resource name. Croft's azure model
+  list (`packages/core/src/llm/adapters/azure.ts`) must match the
+  deployment names that exist on that resource; it currently does.
+- **Bedrock**: the access key ID and secret of an IAM user allowed to
+  invoke models. Croft's list uses `eu.*` inference profiles; the 5-family
+  models need a credential saved with region `eu-west-1`, the 4-x ones
+  `eu-central-1` — save the same key pair twice with each region and pick
+  the matching credential when setting the active model.
+
+Paste values only into an instance with a real `TOKEN_ENC_KEY`; the
+well-known dev key is refused outside dev.
+
 ## Azure OpenAI
 
 You need an Azure account with a subscription.
@@ -18,10 +35,11 @@ You need an Azure account with a subscription.
    (`eastus2` and `swedencentral` are usually well-stocked).
 2. **Deploy the models.** Open the resource → "Go to Azure AI Foundry
    portal" → **Deployments** → Deploy model. Deploy each model you want
-   (e.g. `gpt-5`, `gpt-4.1`).
-   **Name each deployment exactly after the model** — `gpt-5`, not
-   `gpt-5-prod`. Croft sends the model name as the deployment name, so a
-   mismatch means 404s. "Global Standard" deployment type is fine.
+   Croft sends the model name as the deployment name, so **deployment
+   names must exactly match Croft's azure model list**
+   (`packages/core/src/llm/adapters/azure.ts`) — a mismatch means 404s.
+   Adjust that list to your deployment names or vice versa. "Global
+   Standard" deployment type is fine.
 3. **Get the key.** Back in the Azure portal, resource → **Keys and
    Endpoint** → copy Key 1.
 4. **Paste into Croft.** Models page → azure section → enter the key and
@@ -65,8 +83,8 @@ You need an AWS account.
    model.
 
 Croft's model list uses cross-region inference profile IDs
-(`us.anthropic.…`), which work from any US region; if you set up in an EU
-region instead, the IDs need an `eu.` prefix — that's a code change in
+(`eu.anthropic.…`), which work from EU regions; if you set up in a US
+region instead, the IDs need a `us.` prefix — that's a code change in
 `packages/core/src/llm/adapters/bedrock.ts`.
 
 ## Recommended for both

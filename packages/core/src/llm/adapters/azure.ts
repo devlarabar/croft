@@ -7,10 +7,11 @@ interface AzureCredentialBlob {
 }
 
 // Azure's OpenAI-compatible v1 surface. The model field is the deployment
-// name, so deployments must be named exactly after these models.
+// name, so this list must match the deployments on the resource the
+// credential points at — currently the company Sweden-Central resource.
 class AzureAdapter extends OpenAiCompatibleAdapter {
   constructor() {
-    super("azure", ["gpt-5", "gpt-4.1", "gpt-4o"], "");
+    super("azure", ["gpt-5-5-se", "gpt-5-6-sol-se", "gpt-5-6-terra-se", "gpt-5-6-luna-se"], "");
   }
 
   protected override resolve(token: string) {

@@ -25,11 +25,13 @@ async function* chunkEvents(stream: AsyncIterable<ResponseStream>): AsyncIterabl
 class BedrockAdapter implements ProviderAdapter {
   id = "bedrock";
   // Cross-region inference profile IDs — the bare anthropic.* model IDs are
-  // not directly invocable for these generations.
+  // not directly invocable for these generations. The 5-family profiles need
+  // a credential with region eu-west-1; the 4-x ones eu-central-1.
   models = [
-    "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    "us.anthropic.claude-opus-4-1-20250805-v1:0",
-    "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "eu.anthropic.claude-sonnet-5",
+    "eu.anthropic.claude-opus-5",
+    "eu.anthropic.claude-sonnet-4-6",
+    "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
   ];
 
   async *chat(req: ChatRequest, cred: Credential): AsyncIterable<ChatEvent> {
