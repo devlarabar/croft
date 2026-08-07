@@ -13,9 +13,9 @@ async function git(cwd: string, args: string[], env?: NodeJS.ProcessEnv): Promis
   return stdout;
 }
 
-// Shallow, blobless checkout of the PR head. The token goes to git through a
-// credential helper reading the environment: in the URL it would end up in
-// .git/config and, worse, in the text of any git error we store or display.
+// No --filter: a blobless fetch makes checkout and read_file pull blobs from
+// the promisor remote, which runs without the credential helper. The token
+// goes via the helper because git echoes fetch URLs in its error text.
 export async function checkoutPr(repo: string, headSha: string, token: string): Promise<string> {
   const dir = join(process.env.ARTIFACTS_DIR ?? "/artifacts", "checkout");
   await exec("git", ["init", "--quiet", dir]);
@@ -26,8 +26,7 @@ export async function checkoutPr(repo: string, headSha: string, token: string): 
       "credential.helper=!f() { echo username=x-access-token; echo password=$CROFT_GITHUB_TOKEN; }; f",
       "fetch",
       "--depth",
-      "50",
-      "--filter=blob:none",
+      "1",
       `https://github.com/${repo}.git`,
       headSha,
     ],
