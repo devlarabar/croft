@@ -229,7 +229,11 @@ export function ModelsPage(props: {
               size={40}
             />{" "}
             {provider.id === "azure" ? (
-              <input name="resourceName" placeholder="Resource name" size={20} />
+              <input
+                name="resourceName"
+                placeholder="Resource name (the myname in myname.openai.azure.com)"
+                size={46}
+              />
             ) : null}
             {provider.id === "bedrock" ? (
               <>
