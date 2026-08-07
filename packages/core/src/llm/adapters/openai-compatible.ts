@@ -83,7 +83,8 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
 
   async *chat(req: ChatRequest, cred: Credential): AsyncIterable<ChatEvent> {
     const { baseUrl, headers } = this.resolve(await cred.getToken());
-    const res = await fetch(this.chatUrl(baseUrl, req.model), {
+    const url = this.chatUrl(baseUrl, req.model);
+    const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json", ...headers },
       body: JSON.stringify({
@@ -103,7 +104,7 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
     });
     if (!res.ok || !res.body) {
       throw new LlmTransportError(
-        `${this.id} ${res.status}: ${await res.text()}`,
+        `${this.id} ${res.status} calling ${url}: ${await res.text()}`,
         res.status,
         parseRetryAfter(res.headers.get("retry-after")),
       );
