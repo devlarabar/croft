@@ -25,8 +25,9 @@ COPY packages/core/package.json packages/core/
 COPY apps/worker/package.json apps/worker/
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-# git: review mode checks out the PR branch.
-RUN apt-get update && apt-get install -y --no-install-recommends git \
+# git: review mode checks out the PR branch. ca-certificates: git verifies
+# github.com against the system store, which node-slim ships without.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
   && npx playwright install --with-deps chromium \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/packages/core/dist packages/core/dist

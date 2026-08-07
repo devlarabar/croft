@@ -8,24 +8,31 @@ import type { AgentTool } from "@croft/core/llm/loop";
 const exec = promisify(execFile);
 const MAX_TOOL_OUTPUT = 20_000;
 
-async function git(cwd: string, args: string[]): Promise<string> {
-  const { stdout } = await exec("git", args, { cwd, maxBuffer: 32 * 1024 * 1024 });
+async function git(cwd: string, args: string[], env?: NodeJS.ProcessEnv): Promise<string> {
+  const { stdout } = await exec("git", args, { cwd, env, maxBuffer: 32 * 1024 * 1024 });
   return stdout;
 }
 
-// Shallow, blobless checkout of the PR head. The token is passed in the fetch
-// URL rather than a stored remote so it never lands in .git/config.
+// Shallow, blobless checkout of the PR head. The token goes to git through a
+// credential helper reading the environment: in the URL it would end up in
+// .git/config and, worse, in the text of any git error we store or display.
 export async function checkoutPr(repo: string, headSha: string, token: string): Promise<string> {
   const dir = join(process.env.ARTIFACTS_DIR ?? "/artifacts", "checkout");
   await exec("git", ["init", "--quiet", dir]);
-  await git(dir, [
-    "fetch",
-    "--depth",
-    "50",
-    "--filter=blob:none",
-    `https://x-access-token:${token}@github.com/${repo}.git`,
-    headSha,
-  ]);
+  await git(
+    dir,
+    [
+      "-c",
+      "credential.helper=!f() { echo username=x-access-token; echo password=$CROFT_GITHUB_TOKEN; }; f",
+      "fetch",
+      "--depth",
+      "50",
+      "--filter=blob:none",
+      `https://github.com/${repo}.git`,
+      headSha,
+    ],
+    { ...process.env, CROFT_GITHUB_TOKEN: token },
+  );
   await git(dir, ["checkout", "--quiet", "FETCH_HEAD"]);
   return dir;
 }
