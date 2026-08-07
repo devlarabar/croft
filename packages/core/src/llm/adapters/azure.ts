@@ -21,8 +21,14 @@ class AzureAdapter extends OpenAiCompatibleAdapter {
 
   protected override resolve(token: string) {
     const blob = JSON.parse(token) as AzureCredentialBlob;
+    // Azure shows the endpoint as a URL, so that's what gets pasted into the
+    // resource-name field; the bare name is what belongs in the host.
+    const resource = blob.resourceName
+      .trim()
+      .replace(/^https?:\/\//, "")
+      .replace(/\.openai\.azure\.com\/?$/, "");
     return {
-      baseUrl: `https://${blob.resourceName}.openai.azure.com/openai`,
+      baseUrl: `https://${resource}.openai.azure.com/openai`,
       headers: { "api-key": blob.apiKey },
     };
   }
