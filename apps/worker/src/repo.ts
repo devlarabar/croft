@@ -36,6 +36,14 @@ export async function checkoutPr(repo: string, headSha: string, token: string): 
   return dir;
 }
 
+const readFileArgs = z.object({
+  path: z.string(),
+  startLine: z.number().optional(),
+  endLine: z.number().optional(),
+});
+
+const grepArgs = z.object({ pattern: z.string(), pathspec: z.string().optional() });
+
 function clip(text: string): string {
   return text.length > MAX_TOOL_OUTPUT ? `${text.slice(0, MAX_TOOL_OUTPUT)}\n…(truncated)` : text;
 }
@@ -63,9 +71,9 @@ export function repoTools(dir: string): AgentTool[] {
           required: ["path"],
         },
       },
-      schema: z.object({ path: z.string(), startLine: z.number().optional(), endLine: z.number().optional() }),
+      schema: readFileArgs,
       async execute(args) {
-        const { path, startLine, endLine } = args as { path: string; startLine?: number; endLine?: number };
+        const { path, startLine, endLine } = readFileArgs.parse(args);
         const full = inside(path);
         if (!full) return [{ type: "text", text: `Refused: ${path} is outside the repository.` }];
         const lines = (await readFile(full, "utf8")).split("\n");
@@ -91,9 +99,9 @@ export function repoTools(dir: string): AgentTool[] {
           required: ["pattern"],
         },
       },
-      schema: z.object({ pattern: z.string(), pathspec: z.string().optional() }),
+      schema: grepArgs,
       async execute(args) {
-        const { pattern, pathspec } = args as { pattern: string; pathspec?: string };
+        const { pattern, pathspec } = grepArgs.parse(args);
         // git grep exits 1 with no output when nothing matches.
         const out = await git(dir, [
           "grep",

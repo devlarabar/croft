@@ -13,7 +13,7 @@ export function eventWriter(runId: string) {
           runId,
           seq: currentSeq,
           type,
-          payload: redactDeep(payload) as object,
+          payload: redactDeep(payload),
           artifactKey,
         }),
       { attempts: 3, shouldRetry: isTransientDbError },

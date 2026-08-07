@@ -9,6 +9,6 @@ export function redact(text: string): string {
     .replace(/(https?:\/\/)[^/\s:@]+:[^/\s@]+@/g, "$1[redacted]@");
 }
 
-export function redactDeep<T>(value: T): T {
-  return JSON.parse(redact(JSON.stringify(value))) as T;
+export function redactDeep(value: unknown): object {
+  return JSON.parse(redact(JSON.stringify(value)));
 }

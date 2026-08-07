@@ -1,5 +1,7 @@
 import { createPrivateKey } from "node:crypto";
 import { App } from "@octokit/app";
+import { z } from "zod";
+import { stripGeneratedFiles } from "./diff.js";
 import { withRetry } from "./retry.js";
 
 // Lazy: local dev without GITHUB_APP_* env must still boot the dashboard.
@@ -57,7 +59,9 @@ export async function getPrDiff(repo: string, prNumber: number): Promise<string>
       }),
     retry3,
   );
-  return data as unknown as string;
+  // The diff media type returns text, but octokit types the route by its
+  // JSON schema.
+  return stripGeneratedFiles(z.string().parse(data));
 }
 
 export async function listPrComments(repo: string, prNumber: number) {

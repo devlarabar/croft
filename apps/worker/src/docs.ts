@@ -3,6 +3,8 @@ import type { AgentTool } from "@croft/core/llm/loop";
 
 const MAX_DOC_CHARS = 20_000;
 
+const docsArgs = z.object({ url: z.string() });
+
 function toText(html: string): string {
   return html
     .replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, "")
@@ -26,10 +28,9 @@ export const docsTool: AgentTool = {
       required: ["url"],
     },
   },
-  schema: z.object({ url: z.string() }),
+  schema: docsArgs,
   async execute(args) {
-    const { url } = args as { url: string };
-    const parsed = new URL(url);
+    const parsed = new URL(docsArgs.parse(args).url);
     if (parsed.protocol !== "https:") {
       return [{ type: "text", text: `Refused: ${parsed.protocol} — only https documentation URLs are allowed.` }];
     }

@@ -85,12 +85,14 @@ export async function executeReview(opts: {
   toolCallCap?: number;
   emit(type: string, payload: unknown): Promise<void>;
 }): Promise<{ status: RunStatus; report: ReviewReport | null }> {
-  let report: ReviewReport | null = null;
+  // A property, not a local: the tool assigns it in a closure, which
+  // control-flow analysis can't see.
+  const submitted: { report: ReviewReport | null } = { report: null };
   const submitTool: AgentTool = {
     def: submitToolDef,
     schema: reviewSchema,
     async execute(args) {
-      report = args as ReviewReport;
+      submitted.report = reviewSchema.parse(args);
       return [{ type: "text", text: "Review recorded." }];
     },
   };
@@ -132,7 +134,7 @@ Review it now.`,
     onEvent: opts.emit,
   });
 
-  if (result.outcome === "cap_hit" && !report) {
+  if (result.outcome === "cap_hit" && !submitted.report) {
     // The tokens are spent — get the findings out anyway.
     await runAgentLoop({
       adapter: opts.adapter,
@@ -157,8 +159,8 @@ Review it now.`,
     });
   }
 
-  const finalReport = report as ReviewReport | null;
-  if (result.outcome === "cap_hit") return { status: "cap_hit", report: finalReport };
-  if (!finalReport) return { status: "error", report: null };
-  return { status: finalReport.safeToMerge ? "passed" : "failed", report: finalReport };
+  const report = submitted.report;
+  if (result.outcome === "cap_hit") return { status: "cap_hit", report };
+  if (!report) return { status: "error", report: null };
+  return { status: report.safeToMerge ? "passed" : "failed", report };
 }
