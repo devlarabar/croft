@@ -92,6 +92,55 @@ export async function addEyesReaction(repo: string, commentId: number) {
   );
 }
 
+// Short-lived (1h) installation token, for cloning the PR branch over HTTPS.
+export async function installationToken(repo: string): Promise<string> {
+  const { owner, name } = splitRepo(repo);
+  const { data: installation } = await app().octokit.request(
+    "GET /repos/{owner}/{repo}/installation",
+    { owner, repo: name },
+  );
+  const { data } = await app().octokit.request(
+    "POST /app/installations/{installation_id}/access_tokens",
+    { installation_id: installation.id, repositories: [name] },
+  );
+  return data.token;
+}
+
+export interface ReviewComment {
+  path: string;
+  line: number;
+  startLine?: number;
+  body: string;
+}
+
+// Review creation is not idempotent: no retry — submit it last, once.
+// `event: COMMENT` rather than REQUEST_CHANGES: croft advises, humans block.
+export async function createPrReview(
+  repo: string,
+  prNumber: number,
+  headSha: string,
+  body: string,
+  comments: ReviewComment[],
+) {
+  const kit = await octokitFor(repo);
+  const { owner, name } = splitRepo(repo);
+  await kit.request("POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews", {
+    owner,
+    repo: name,
+    pull_number: prNumber,
+    commit_id: headSha,
+    event: "COMMENT",
+    body,
+    comments: comments.map((comment) => ({
+      path: comment.path,
+      line: comment.line,
+      start_line: comment.startLine,
+      side: "RIGHT" as const,
+      body: comment.body,
+    })),
+  });
+}
+
 // Comment creation is not idempotent: no retry — create it last, once.
 export async function postPrComment(repo: string, prNumber: number, body: string) {
   const kit = await octokitFor(repo);

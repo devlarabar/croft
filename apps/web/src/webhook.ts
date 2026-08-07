@@ -71,6 +71,8 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
   const testCmd = command.match(/^test(-fresh-plan)?$/i);
   if (testCmd) {
     await startRun({ repo, prNumber: payload.issue.number, mode: "test", freshPlan: !!testCmd[1] });
+  } else if (/^review$/i.test(command)) {
+    await startRun({ repo, prNumber: payload.issue.number, mode: "review" });
   } else {
     const answer = await answerQuestion(repo, payload.issue.number, command);
     await postPrComment(repo, payload.issue.number, answer);

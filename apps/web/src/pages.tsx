@@ -148,6 +148,7 @@ export function NewRunPage({ prs, error }: { prs: OpenPr[]; error?: string }) {
               Mode<br />
               <select name="mode">
                 <option value="test">test</option>
+                <option value="review">review</option>
               </select>
             </label>
           </p>

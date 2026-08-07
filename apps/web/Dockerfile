@@ -7,8 +7,9 @@ COPY packages/core/package.json packages/core/
 COPY apps/web/package.json apps/web/
 # --ignore-scripts: no dep postinstall (esbuild etc.) is needed in the image.
 RUN pnpm install --frozen-lockfile --ignore-scripts
-# skills/test-plan.md is codegen input for @croft/core's build.
+# skills/*.md and docs/code-standards.md are codegen input for @croft/core's build.
 COPY skills skills
+COPY docs docs
 COPY packages/core packages/core
 COPY apps/web apps/web
 RUN pnpm --filter @croft/core build && pnpm --filter @croft/web build

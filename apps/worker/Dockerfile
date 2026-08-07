@@ -10,8 +10,9 @@ COPY apps/worker/package.json apps/worker/
 # --ignore-scripts: dep postinstalls (esbuild binary, playwright browser
 # download) aren't needed — Chromium is installed explicitly below.
 RUN pnpm install --frozen-lockfile --ignore-scripts
-# skills/test-plan.md is codegen input for @croft/core's build.
+# skills/*.md and docs/code-standards.md are codegen input for @croft/core's build.
 COPY skills skills
+COPY docs docs
 COPY packages/core packages/core
 COPY apps/worker apps/worker
 RUN pnpm --filter @croft/core build && pnpm --filter @croft/worker build
@@ -24,7 +25,9 @@ COPY packages/core/package.json packages/core/
 COPY apps/worker/package.json apps/worker/
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN npx playwright install --with-deps chromium \
+# git: review mode checks out the PR branch.
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+  && npx playwright install --with-deps chromium \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/packages/core/dist packages/core/dist
 COPY --from=build /app/apps/worker/dist apps/worker/dist

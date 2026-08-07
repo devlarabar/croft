@@ -110,7 +110,7 @@ app.post("/runs", async (ctx) => {
     const result = await startRun({
       repo: repo!,
       prNumber: Number(num),
-      mode: "test",
+      mode: form.get("mode") === "review" ? "review" : "test",
       previewUrl: String(form.get("previewUrl") ?? "") || undefined,
       freshPlan: form.get("freshPlan") === "on",
     });

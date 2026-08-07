@@ -44,8 +44,10 @@ export async function startRun(opts: {
 
   // Preview discovery is orchestration: a UI-supplied URL wins; otherwise check
   // the PR's comments once. No URL → comment, no job, nothing billed.
-  const previewUrl = opts.previewUrl || (await discoverPreviewUrl(opts.repo, opts.prNumber));
-  if (!previewUrl) {
+  // Review mode reads the code, never the deployment.
+  const previewUrl =
+    opts.mode === "review" ? null : opts.previewUrl || (await discoverPreviewUrl(opts.repo, opts.prNumber));
+  if (opts.mode !== "review" && !previewUrl) {
     await db
       .update(schema.runs)
       .set({ status: "error", error: "no preview URL found", finishedAt: new Date() })
@@ -63,7 +65,7 @@ export async function startRun(opts: {
     await startJob({
       RUN_ID: runId,
       PR_NUMBER: String(opts.prNumber),
-      PREVIEW_URL: previewUrl,
+      PREVIEW_URL: previewUrl ?? "",
     });
   } catch (err) {
     await db

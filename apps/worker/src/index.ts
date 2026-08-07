@@ -5,6 +5,7 @@ import {
   RunStatus,
   complete,
   createCheckRun,
+  createPrReview,
   db,
   decrypt,
   eventWriter,
@@ -13,13 +14,16 @@ import {
   getPr,
   getPrDiff,
   getProvider,
+  installationToken,
   loadCredential,
   postPrComment,
   PLAN_TRIAGE_SKILL,
   schema,
   TEST_PLAN_SKILL,
 } from "@croft/core";
-import { formatComment } from "./report.js";
+import { formatComment, formatReview } from "./report.js";
+import { checkoutPr } from "./repo.js";
+import { executeReview } from "./review.js";
 import { executeTestRun } from "./testrun.js";
 
 const RUN_ID = process.env.RUN_ID!;
@@ -42,6 +46,37 @@ async function main() {
   const adapter = getProvider(run.providerId);
   const cred = await loadCredential(run.credentialId, adapter.oauth);
   const pr = await getPr(run.repo, run.prNumber);
+
+  if (run.mode === "review") {
+    const diff = await getPrDiff(run.repo, run.prNumber);
+    const checkoutDir = await checkoutPr(run.repo, pr.head.sha, await installationToken(run.repo));
+    const { status, report } = await executeReview({
+      repo: run.repo,
+      prNumber: run.prNumber,
+      prTitle: pr.title,
+      prBody: pr.body,
+      diff,
+      checkoutDir,
+      repoContext: cfg.repoContext[run.repo] ?? null,
+      adapter,
+      cred,
+      model: run.model,
+      toolCallCap: cfg.toolCallCap,
+      emit,
+    });
+    if (!report) {
+      await setStatus("error", { error: "agent finished without submitting a review", finishedAt: new Date() });
+      return;
+    }
+    await setStatus(status, { report, finishedAt: new Date() });
+    // A review that ran out of budget must not read as green.
+    let conclusion: "success" | "failure" | "neutral" = report.safeToMerge ? "success" : "failure";
+    if (status === "cap_hit") conclusion = "neutral";
+    await createCheckRun(run.repo, pr.head.sha, conclusion, report.summary);
+    const { body, comments } = formatReview(report, diff, `${WEB_URL}/runs/${RUN_ID}`);
+    await createPrReview(run.repo, run.prNumber, pr.head.sha, body, comments);
+    return;
+  }
 
   // Test plan: PR body section, else generated from the diff. A body plan
   // that is just a CI report ("tests pass", "typecheck clean") with nothing

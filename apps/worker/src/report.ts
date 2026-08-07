@@ -1,5 +1,52 @@
-import type { RunReport, RunStatus } from "@croft/core";
+import { commentableLines } from "@croft/core";
+import type { ReviewComment, ReviewReport, RunReport, RunStatus } from "@croft/core";
 import type { Screenshot } from "./browser.js";
+
+// Splits a review into the summary body and its inline comments. A finding
+// anchored outside the diff can't be posted inline (GitHub rejects the whole
+// review), so it falls back into the body.
+export function formatReview(
+  report: ReviewReport,
+  diff: string,
+  runUrl: string,
+): { body: string; comments: ReviewComment[] } {
+  const commentable = commentableLines(diff);
+  const comments: ReviewComment[] = [];
+  const orphans: string[] = [];
+  for (const finding of report.findings) {
+    const lines = commentable.get(finding.file);
+    const body = `**${finding.title} (-${finding.pointsCost}pts)**\n\n${finding.detail}`;
+    if (lines?.has(finding.endLine)) {
+      comments.push({
+        path: finding.file,
+        line: finding.endLine,
+        startLine: lines.has(finding.startLine) && finding.startLine < finding.endLine ? finding.startLine : undefined,
+        body,
+      });
+    } else {
+      orphans.push(`${body}\n- \`${finding.file}:${finding.startLine}-${finding.endLine}\``);
+    }
+  }
+
+  const lines = [`## Croft review: ${report.score}/100`, "", report.summary, ""];
+  if (report.praise.length) {
+    lines.push("**What's good**", "", ...report.praise.map((item) => `- ${item}`), "");
+  }
+  if (!report.findings.length) lines.push("No findings.", "");
+  if (comments.length) {
+    lines.push(`${comments.length} finding${comments.length === 1 ? "" : "s"} are inline on the diff.`, "");
+  }
+  if (orphans.length) {
+    lines.push("**Findings outside the diff**", "", ...orphans.map((item) => `${item}\n`));
+  }
+  lines.push(
+    report.safeToMerge ? "**Safe to merge into main**." : "**Not safe to merge into main yet.**",
+    report.breakingChanges,
+    "",
+    `🔎 [Run details](${runUrl})`,
+  );
+  return { body: lines.join("\n"), comments };
+}
 
 const ICONS = { pass: "✅", fail: "❌", not_reached: "⏭️" } as const;
 

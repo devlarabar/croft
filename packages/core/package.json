@@ -8,7 +8,7 @@
     "./*": "./dist/*.js"
   },
   "scripts": {
-    "build": "node scripts/gen-testplan-skill.mjs && tsc",
+    "build": "node scripts/gen-skills.mjs && tsc",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "rotate-key": "node dist/rotate-key.js"

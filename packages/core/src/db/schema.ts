@@ -33,6 +33,24 @@ export interface RunReport {
   steps: StepResult[];
 }
 
+export interface ReviewFinding {
+  title: string;
+  pointsCost: number;
+  detail: string;
+  file: string;
+  startLine: number;
+  endLine: number;
+}
+
+export interface ReviewReport {
+  score: number;
+  summary: string;
+  praise: string[];
+  findings: ReviewFinding[];
+  safeToMerge: boolean;
+  breakingChanges: string;
+}
+
 // UUID ids: artifact keys are `<runId>/<filename>` on a public-read bucket,
 // so ids must be unguessable.
 export const runs = pgTable("runs", {
@@ -47,7 +65,7 @@ export const runs = pgTable("runs", {
   providerId: text("provider_id").notNull(),
   model: text("model").notNull(),
   credentialId: uuid("credential_id").notNull(),
-  report: jsonb("report").$type<RunReport>(),
+  report: jsonb("report").$type<RunReport | ReviewReport>(),
   error: text("error"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   startedAt: timestamp("started_at", { withTimezone: true }),
