@@ -12,7 +12,7 @@ COPY apps/worker/package.json apps/worker/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 # skills/*.md and docs/code-standards.md are codegen input for @croft/core's build.
 COPY skills skills
-COPY docs docs
+COPY docs/code-standards.md docs/
 COPY packages/core packages/core
 COPY apps/worker apps/worker
 RUN pnpm --filter @croft/core build && pnpm --filter @croft/worker build

@@ -3,3 +3,5 @@ node_modules
 **/dist
 .git
 docs
+# codegen input for @croft/core's build (skills.ts)
+!docs/code-standards.md
