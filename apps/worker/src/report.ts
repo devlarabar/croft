@@ -8,7 +8,6 @@ import type { Screenshot } from "./browser.js";
 export function formatReview(
   report: ReviewReport,
   diff: string,
-  runUrl: string,
 ): { body: string; comments: ReviewComment[] } {
   const commentable = commentableLines(diff);
   const comments: ReviewComment[] = [];
@@ -42,8 +41,6 @@ export function formatReview(
   lines.push(
     report.safeToMerge ? "**Safe to merge into main**." : "**Not safe to merge into main yet.**",
     report.breakingChanges,
-    "",
-    `🔎 [Run details](${runUrl})`,
   );
   return { body: lines.join("\n"), comments };
 }

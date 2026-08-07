@@ -29,8 +29,9 @@
 
 ## Comments
 
-- Keep comments concise; avoid comments more than 3 lines. Comments should only
-  be included if they don't restate what is stated already by code. A comment
+- Keep comments concise; avoid comments more than 3 lines of prose (`/**` and
+  `*/` delimiters don't count). Comments should only be included if they don't
+  restate what is stated already by code. A comment
   defending complex code means refactor first. Comments record external
   constraints (API quirks, browser rules), never justifications. Comment only
   what the code does, never what it doesn't do, and never why a choice is

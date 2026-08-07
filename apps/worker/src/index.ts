@@ -74,7 +74,7 @@ async function main() {
     let conclusion: "success" | "failure" | "neutral" = report.safeToMerge ? "success" : "failure";
     if (status === "cap_hit") conclusion = "neutral";
     await createCheckRun(run.repo, pr.head.sha, conclusion, report.summary);
-    const { body, comments } = formatReview(report, diff, `${WEB_URL}/runs/${RUN_ID}`);
+    const { body, comments } = formatReview(report, diff);
     await createPrReview(run.repo, run.prNumber, pr.head.sha, body, comments);
     return;
   }
