@@ -76,9 +76,14 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
     return { baseUrl: this.baseUrl, headers: { authorization: `Bearer ${token}` } };
   }
 
+  // Azure routes by deployment path instead; everyone else takes the model in the body.
+  protected chatUrl(baseUrl: string, _model: string): string {
+    return `${baseUrl}/chat/completions`;
+  }
+
   async *chat(req: ChatRequest, cred: Credential): AsyncIterable<ChatEvent> {
     const { baseUrl, headers } = this.resolve(await cred.getToken());
-    const res = await fetch(`${baseUrl}/chat/completions`, {
+    const res = await fetch(this.chatUrl(baseUrl, req.model), {
       method: "POST",
       headers: { "content-type": "application/json", ...headers },
       body: JSON.stringify({

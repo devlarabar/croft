@@ -35,11 +35,12 @@ You need an Azure account with a subscription.
    (`eastus2` and `swedencentral` are usually well-stocked).
 2. **Deploy the models.** Open the resource → "Go to Azure AI Foundry
    portal" → **Deployments** → Deploy model. Deploy each model you want
-   Croft sends the model name as the deployment name, so **deployment
-   names must exactly match Croft's azure model list**
+   Croft calls `/openai/deployments/{name}/chat/completions`, so
+   **deployment names must exactly match Croft's azure model list**
    (`packages/core/src/llm/adapters/azure.ts`) — a mismatch means 404s.
    Adjust that list to your deployment names or vice versa. "Global
-   Standard" deployment type is fine.
+   Standard" deployment type is fine. If your deployments need a
+   different `api-version`, change `API_VERSION` in the same file.
 3. **Get the key.** Back in the Azure portal, resource → **Keys and
    Endpoint** → copy Key 1.
 4. **Paste into Croft.** Models page → azure section → enter the key and
