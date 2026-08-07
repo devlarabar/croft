@@ -36,6 +36,9 @@ export function Layout(props: { title: string; children: Child }) {
               {label}
             </a>
           ))}
+          <a class="external" href="https://github.com/devlarabar/croft" target="_blank" rel="noreferrer">
+            GitHub ↗
+          </a>
         </nav>
         <main>{props.children}</main>
       </body>

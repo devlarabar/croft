@@ -45,6 +45,10 @@ nav a.active {
     font-weight: 600;
 }
 
+nav a.external {
+    margin-left: auto;
+}
+
 main {
     max-width: 64rem;
     margin: 2.5rem auto;
