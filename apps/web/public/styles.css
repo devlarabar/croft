@@ -183,6 +183,11 @@ button.link {
     padding: 0;
 }
 
+button.copy {
+    font-size: 0.8rem;
+    margin: 0.35rem 0;
+}
+
 fieldset {
     border: none;
     border-top: 1px solid var(--hair);

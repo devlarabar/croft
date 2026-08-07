@@ -84,6 +84,12 @@ export function RunsPage({ runs }: { runs: Run[] }) {
               {run.error ? (
                 <details>
                   <summary class="mono muted">error</summary>
+                  <button
+                    class="link copy"
+                    onclick="navigator.clipboard.writeText(this.nextElementSibling.textContent); this.textContent = '⎘ Copied'"
+                  >
+                    ⎘ Click to copy
+                  </button>
                   <div class="mono muted">{run.error}</div>
                 </details>
               ) : null}
