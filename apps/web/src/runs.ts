@@ -4,6 +4,7 @@ import {
   discoverPreviewUrl,
   getConfig,
   postPrComment,
+  redact,
   schema,
 } from "@croft/core";
 import type { RunMode } from "@croft/core";
@@ -70,7 +71,7 @@ export async function startRun(opts: {
   } catch (err) {
     await db
       .update(schema.runs)
-      .set({ status: "error", error: String((err as Error).message), finishedAt: new Date() })
+      .set({ status: "error", error: redact(String((err as Error).message)), finishedAt: new Date() })
       .where(eq(schema.runs.id, runId));
     return { runId, started: false, reason: "job start failed" };
   }

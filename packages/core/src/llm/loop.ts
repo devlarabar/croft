@@ -1,4 +1,5 @@
 import type { ZodType } from "zod";
+import { redact } from "../redact.js";
 import { withRetry } from "../retry.js";
 import {
   ChatMessage,
@@ -113,7 +114,9 @@ async function executeTool(tool: AgentTool | undefined, call: ToolCall): Promise
     return await tool.execute(parsed.data);
   } catch (err) {
     // Browser actions never auto-retry: the model sees the failure and decides.
-    return [{ type: "text", text: `Tool failed: ${(err as Error).message}` }];
+    // Redacted: tool errors quote commands and URLs, and this text is sent to
+    // the model provider.
+    return [{ type: "text", text: redact(`Tool failed: ${(err as Error).message}`) }];
   }
 }
 

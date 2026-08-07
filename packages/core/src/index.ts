@@ -8,6 +8,7 @@ export * from "./events.js";
 export * from "./github.js";
 export * from "./testplan.js";
 export * from "./diff.js";
+export * from "./redact.js";
 export * from "./skills.js";
 export * from "./llm/types.js";
 export * from "./llm/oauth.js";

@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db, schema } from "./db/client.js";
+import { redactDeep } from "./redact.js";
 import { isTransientDbError, withRetry } from "./retry.js";
 
 export function eventWriter(runId: string) {
@@ -12,7 +13,7 @@ export function eventWriter(runId: string) {
           runId,
           seq: currentSeq,
           type,
-          payload: payload as object,
+          payload: redactDeep(payload) as object,
           artifactKey,
         }),
       { attempts: 3, shouldRetry: isTransientDbError },

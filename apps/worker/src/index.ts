@@ -17,6 +17,7 @@ import {
   installationToken,
   loadCredential,
   postPrComment,
+  redact,
   PLAN_TRIAGE_SKILL,
   schema,
   TEST_PLAN_SKILL,
@@ -170,9 +171,10 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch(async (err) => {
-    console.error(err);
+    const details = redact(String((err as Error).stack ?? err));
+    console.error(details);
     try {
-      await setStatus("error", { error: String((err as Error).stack ?? err), finishedAt: new Date() });
+      await setStatus("error", { error: details, finishedAt: new Date() });
     } catch (statusErr) {
       console.error("failed to record error status", statusErr);
     }
