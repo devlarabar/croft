@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import {
+  addLearning,
   authorizeUrl,
   db,
   decrypt,
@@ -12,6 +13,7 @@ import {
   generatePkce,
   getConfig,
   getProvider,
+  LEARNING_MAX_CHARS,
   listOpenPrs,
   PROVIDERS,
   publicUrl,
@@ -23,6 +25,7 @@ import { exportZip, purge } from "./export.js";
 import {
   ChatPage,
   ExportPage,
+  LearningsPage,
   ModelsPage,
   NewRunPage,
   OAuthPastePage,
@@ -269,6 +272,33 @@ app.post("/chat", async (ctx) => {
   const question = String(form.get("question"));
   const answer = await answerQuestion(repo, Number(prNumber), question);
   return ctx.html(<ChatPage repo={repo} prNumber={prNumber} question={question} answer={answer} />);
+});
+
+app.get("/learnings", async (ctx) => {
+  const cfg = await getConfig();
+  const learnings = await db.select().from(schema.learnings).orderBy(desc(schema.learnings.createdAt));
+  return ctx.html(<LearningsPage repos={cfg.repos} learnings={learnings} notice={ctx.req.query("notice")} />);
+});
+
+app.post("/learnings", async (ctx) => {
+  const form = await ctx.req.formData();
+  const cfg = await getConfig();
+  const existing = await db.select().from(schema.learnings);
+  for (const learning of existing) {
+    const field = form.get(`learning_${learning.id}`);
+    if (field === null) continue;
+    const text = String(field).trim().slice(0, LEARNING_MAX_CHARS);
+    if (!text) {
+      await db.delete(schema.learnings).where(eq(schema.learnings.id, learning.id));
+    } else if (text !== learning.text) {
+      await db.update(schema.learnings).set({ text }).where(eq(schema.learnings.id, learning.id));
+    }
+  }
+  for (const repo of cfg.repos) {
+    const text = String(form.get(`new_${repo}`) ?? "").trim().slice(0, LEARNING_MAX_CHARS);
+    if (text) await addLearning({ repo, text });
+  }
+  return ctx.redirect("/learnings?notice=Saved");
 });
 
 app.get("/export", (ctx) => ctx.html(<ExportPage notice={ctx.req.query("notice")} />));

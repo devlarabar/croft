@@ -1,5 +1,6 @@
 import type { Child } from "hono/jsx";
-import type { ActiveModel, Config, PreviewLogin, ProviderAdapter, RunStatus, schema } from "@croft/core";
+import type { ActiveModel, Config, Learning, PreviewLogin, ProviderAdapter, RunStatus, schema } from "@croft/core";
+import { LEARNING_CAP, LEARNING_MAX_CHARS } from "@croft/core";
 
 type Run = typeof schema.runs.$inferSelect;
 type CredentialRow = typeof schema.credentials.$inferSelect;
@@ -15,6 +16,7 @@ const NAV = [
   ["/new", "New run"],
   ["/models", "Models"],
   ["/chat", "Chat"],
+  ["/learnings", "Learnings"],
   ["/export", "Export & clean up"],
   ["/settings", "Settings"],
 ];
@@ -288,6 +290,81 @@ export function ChatPage(props: { repo?: string; prNumber?: string; question?: s
         <button>Ask</button>
       </form>
       {props.answer ? <pre>{props.answer}</pre> : null}
+    </Layout>
+  );
+}
+
+export function LearningsPage({
+  repos,
+  learnings,
+  notice,
+}: {
+  repos: string[];
+  learnings: Learning[];
+  notice?: string;
+}) {
+  return (
+    <Layout title="Learnings">
+      <h1>Learnings</h1>
+      <p class="sub">
+        Rules Croft applies when reviewing and answering questions about a repo. Max {LEARNING_MAX_CHARS}{" "}
+        characters each, {LEARNING_CAP} per repo. Clear a row to delete it. Croft can add one himself: comment{" "}
+        <code>@croft add-learning</code> on a PR or in a review thread.
+      </p>
+      {notice ? <p>{notice}</p> : null}
+      <form method="post" action="/learnings">
+        {repos.map((repo) => {
+          const rows = learnings.filter((learning) => learning.repo === repo);
+          return (
+            <fieldset>
+              <legend>
+                {repo} ({rows.length}/{LEARNING_CAP})
+              </legend>
+              <table class="runs-table">
+                <tr>
+                  <th>Learning</th>
+                  <th>Source</th>
+                  <th>Added</th>
+                </tr>
+                {rows.map((learning) => (
+                  <tr>
+                    <td>
+                      <input
+                        name={`learning_${learning.id}`}
+                        value={learning.text}
+                        maxlength={LEARNING_MAX_CHARS}
+                        size={80}
+                      />
+                    </td>
+                    <td class="mono muted">
+                      {learning.sourceUrl ? (
+                        <a href={learning.sourceUrl}>{learning.author ?? "comment"}</a>
+                      ) : (
+                        "dashboard"
+                      )}
+                    </td>
+                    <td class="mono muted">{fmtDate(learning.createdAt)}</td>
+                  </tr>
+                ))}
+                {rows.length < LEARNING_CAP ? (
+                  <tr>
+                    <td>
+                      <input
+                        name={`new_${repo}`}
+                        placeholder="Add a learning"
+                        maxlength={LEARNING_MAX_CHARS}
+                        size={80}
+                      />
+                    </td>
+                    <td colspan={2}></td>
+                  </tr>
+                ) : null}
+              </table>
+            </fieldset>
+          );
+        })}
+        {repos.length === 0 ? <p>Add a repo to the allow-list in Settings first.</p> : <button>Save</button>}
+      </form>
     </Layout>
   );
 }

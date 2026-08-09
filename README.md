@@ -16,7 +16,7 @@ Monorepo: `packages/core` (schema, LLM layer, GitHub/S3 helpers), `apps/web`
 | `S3_BUCKET` | artifact bucket name (default `croft-artifacts`) |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Object Storage credentials |
 | `TOKEN_ENC_KEY` | 32 bytes hex — AES-256-GCM key for stored secrets, also signs session cookies |
-| `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` | GitHub App (PRs r/w, checks w, contents r; events `pull_request`, `issue_comment`) |
+| `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` | GitHub App (PRs r/w, checks w, contents r; events `pull_request`, `issue_comment`, `pull_request_review_comment`) |
 | `GITHUB_WEBHOOK_SECRET` | webhook signature secret |
 | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth app for dashboard login |
 | `DASHBOARD_USER` | the single GitHub username allowed to log in |

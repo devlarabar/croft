@@ -1,6 +1,15 @@
 import { Webhooks } from "@octokit/webhooks";
 import type { Context } from "hono";
-import { addEyesReaction, db, getConfig, getPr, postPrComment, schema } from "@croft/core";
+import {
+  addEyesReaction,
+  db,
+  getConfig,
+  getPr,
+  postPrComment,
+  replyToReviewComment,
+  schema,
+} from "@croft/core";
+import { learnFromComment } from "./learn.js";
 import { answerQuestion } from "./qa.js";
 import { startRun } from "./runs.js";
 
@@ -30,14 +39,29 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
   if (inserted.length === 0) return ctx.text("duplicate delivery", 200);
 
   const event = ctx.req.header("x-github-event");
-  if (event !== "issue_comment") return ctx.text("ignored", 200);
+  // Inline review-thread comments arrive as their own event type.
+  const isReviewComment = event === "pull_request_review_comment";
+  if (event !== "issue_comment" && !isReviewComment) return ctx.text("ignored", 200);
   const payload = JSON.parse(body) as {
     action: string;
-    issue: { number: number; pull_request?: object };
-    comment: { id: number; body: string; author_association: string; user: { login: string } };
+    issue?: { number: number; pull_request?: object };
+    pull_request?: { number: number };
+    comment: {
+      id: number;
+      body: string;
+      html_url: string;
+      author_association: string;
+      user: { login: string };
+    };
     repository: { full_name: string };
   };
-  if (payload.action !== "created" || !payload.issue.pull_request) return ctx.text("ignored", 200);
+  if (payload.action !== "created") return ctx.text("ignored", 200);
+  const prNumber = isReviewComment
+    ? payload.pull_request?.number
+    : payload.issue?.pull_request
+      ? payload.issue.number
+      : undefined;
+  if (!prNumber) return ctx.text("ignored", 200);
 
   const match = payload.comment.body.trim().match(/^@(?:agent-)?croft\s+([\s\S]+)/i);
   if (!match) return ctx.text("ignored", 200);
@@ -55,27 +79,48 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
   if (!allowed) return ctx.text("commenter not allowed", 200);
 
   // Ack receipt on the triggering comment before doing any work.
-  await addEyesReaction(repo, payload.comment.id);
+  await addEyesReaction(repo, payload.comment.id, isReviewComment ? "review" : "issue");
+
+  // Answer where the question was asked: in the thread, or on the PR.
+  const reply = (text: string) =>
+    isReviewComment
+      ? replyToReviewComment(repo, prNumber, payload.comment.id, text)
+      : postPrComment(repo, prNumber, text);
 
   // Master toggle: say so instead of silently ignoring. No LLM calls.
   if (!cfg.webhooksEnabled) {
-    await postPrComment(repo, payload.issue.number, "Webhook actions are disabled.");
+    await reply("Webhook actions are disabled.");
     return ctx.text("webhooks disabled", 200);
   }
 
   // Never on PRs from forks.
-  const pr = await getPr(repo, payload.issue.number);
+  const pr = await getPr(repo, prNumber);
   if (!pr.head.repo || pr.head.repo.full_name !== repo) return ctx.text("fork PR", 200);
 
   const command = match[1]!.trim();
   const testCmd = command.match(/^test(-fresh-plan)?$/i);
+  const learnCmd = command.match(/^add-learning\b\s*([\s\S]*)$/i);
   if (testCmd) {
-    await startRun({ repo, prNumber: payload.issue.number, mode: "test", freshPlan: !!testCmd[1] });
+    await startRun({ repo, prNumber, mode: "test", freshPlan: !!testCmd[1] });
   } else if (/^review$/i.test(command)) {
-    await startRun({ repo, prNumber: payload.issue.number, mode: "review" });
+    await startRun({ repo, prNumber, mode: "review" });
+  } else if (learnCmd) {
+    try {
+      const learning = await learnFromComment({
+        repo,
+        prNumber,
+        commentId: payload.comment.id,
+        isReviewComment,
+        hint: learnCmd[1]!.trim(),
+        author: commenter,
+        sourceUrl: payload.comment.html_url,
+      });
+      await reply(`Learned, and I'll apply it to future reviews of \`${repo}\`:\n\n> ${learning}`);
+    } catch (err) {
+      await reply(`Couldn't add that learning: ${(err as Error).message}`);
+    }
   } else {
-    const answer = await answerQuestion(repo, payload.issue.number, command);
-    await postPrComment(repo, payload.issue.number, answer);
+    await reply(await answerQuestion(repo, prNumber, command));
   }
   return ctx.text("ok", 200);
 }

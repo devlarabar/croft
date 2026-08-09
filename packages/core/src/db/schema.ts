@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   integer,
   jsonb,
   pgTable,
@@ -129,3 +131,20 @@ export const config = pgTable("config", {
   // Markdown notes about each repo, injected into the agent's prompts.
   repoContext: jsonb("repo_context").$type<Record<string, string>>().notNull().default({}),
 });
+
+// One-line rules the maintainer teaches croft, injected into reviews and Q&A
+// for that repo. Short by construction so the whole set stays a cheap prompt
+// block; the length cap is enforced in the database, not just the UI.
+export const learnings = pgTable(
+  "learnings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    repo: text("repo").notNull(),
+    text: text("text").notNull(),
+    // The PR comment it was derived from, and who asked for it.
+    sourceUrl: text("source_url"),
+    author: text("author"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [check("learnings_text_len", sql`char_length(${table.text}) <= 200`)],
+);

@@ -80,18 +80,51 @@ export async function listPrComments(repo: string, prNumber: number) {
   return data;
 }
 
-// Adding the same reaction twice is idempotent, so retry is safe.
-export async function addEyesReaction(repo: string, commentId: number) {
+// Inline review comments live on a different route than issue comments.
+export async function listPrReviewComments(repo: string, prNumber: number) {
   const kit = await octokitFor(repo);
   const { owner, name } = splitRepo(repo);
-  await withRetry(
+  const { data } = await withRetry(
     () =>
-      kit.request("POST /repos/{owner}/{repo}/issues/comments/{comment_id}/reactions", {
+      kit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/comments", {
         owner,
         repo: name,
-        comment_id: commentId,
-        content: "eyes",
+        pull_number: prNumber,
+        per_page: 100,
       }),
+    retry3,
+  );
+  return data;
+}
+
+// Reply creation is not idempotent: no retry — post it last, once.
+export async function replyToReviewComment(
+  repo: string,
+  prNumber: number,
+  commentId: number,
+  body: string,
+) {
+  const kit = await octokitFor(repo);
+  const { owner, name } = splitRepo(repo);
+  await kit.request("POST /repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies", {
+    owner,
+    repo: name,
+    pull_number: prNumber,
+    comment_id: commentId,
+    body,
+  });
+}
+
+// Adding the same reaction twice is idempotent, so retry is safe.
+export async function addEyesReaction(repo: string, commentId: number, kind: "issue" | "review") {
+  const kit = await octokitFor(repo);
+  const { owner, name } = splitRepo(repo);
+  const route =
+    kind === "review"
+      ? ("POST /repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions" as const)
+      : ("POST /repos/{owner}/{repo}/issues/comments/{comment_id}/reactions" as const);
+  await withRetry(
+    () => kit.request(route, { owner, repo: name, comment_id: commentId, content: "eyes" }),
     retry3,
   );
 }

@@ -1,8 +1,11 @@
+import { learningsBlock } from "@croft/core/learnings";
+
 export function reviewSystemPrompt(opts: {
   skill: string;
   codeStandards: string;
   repo: string;
   repoContext: string | null;
+  learnings: string[];
 }): string {
   return `You are Croft, reviewing a pull request in ${opts.repo}. Follow the skill below.
 
@@ -23,7 +26,7 @@ ${opts.repoContext}
 </repo_context>
 `
     : ""
-}
+}${learningsBlock(opts.learnings)}
 You have a checkout of the PR branch. Use \`grep\` and \`glob\` to find how comparable features are already implemented, and \`read_file\` to read the surrounding code the diff does not show — a change that looks fine in isolation may break its callers. Use \`fetch_docs\` on the official documentation whenever the diff touches a third-party service or package and correctness depends on using it as documented.
 
 When you are done, call \`submit_review\` exactly once, then stop.

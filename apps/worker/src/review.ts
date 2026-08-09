@@ -79,6 +79,7 @@ export async function executeReview(opts: {
   diff: string;
   checkoutDir: string;
   repoContext: string | null;
+  learnings: string[];
   adapter: ProviderAdapter;
   cred: Credential;
   model: string;
@@ -102,6 +103,7 @@ export async function executeReview(opts: {
     codeStandards: CODE_STANDARDS,
     repo: opts.repo,
     repoContext: opts.repoContext,
+    learnings: opts.learnings,
   });
   const initial: ChatMessage[] = [
     {
