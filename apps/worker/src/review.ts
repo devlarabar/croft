@@ -20,11 +20,35 @@ const reviewSchema = z.object({
       file: z.string(),
       startLine: z.number(),
       endLine: z.number(),
+      agreedWith: z.string().optional(),
     }),
   ),
   safeToMerge: z.boolean(),
   breakingChanges: z.string(),
+  inlineAgreements: z.array(z.number()).optional(),
 });
+
+export interface ReviewerComments {
+  inline: { id: number; author: string; path: string; line: number | null; body: string }[];
+  general: { author: string; body: string }[];
+}
+
+function formatReviewerComments(comments: ReviewerComments): string {
+  const sections: string[] = [];
+  if (comments.inline.length) {
+    sections.push(
+      "Inline diff comments:",
+      ...comments.inline.map(
+        (comment) =>
+          `[id ${comment.id}] @${comment.author} on ${comment.path}${comment.line === null ? "" : `:${comment.line}`}:\n${comment.body}`,
+      ),
+    );
+  }
+  if (comments.general.length) {
+    sections.push("General comments:", ...comments.general.map((comment) => `@${comment.author}:\n${comment.body}`));
+  }
+  return sections.join("\n\n");
+}
 
 const submitToolDef = {
   name: "submit_review",
@@ -57,6 +81,11 @@ const submitToolDef = {
             file: { type: "string", description: "Path exactly as it appears in the diff" },
             startLine: { type: "number", description: "New-file line number the finding starts on" },
             endLine: { type: "number" },
+            agreedWith: {
+              type: "string",
+              description:
+                "Only when the finding agrees with another reviewer's general (non-inline) comment: that reviewer's name",
+            },
           },
           required: ["title", "pointsCost", "detail", "file", "startLine", "endLine"],
         },
@@ -65,6 +94,12 @@ const submitToolDef = {
       breakingChanges: {
         type: "string",
         description: "The breaking changes, or 'No breaking changes.'",
+      },
+      inlineAgreements: {
+        type: "array",
+        items: { type: "number" },
+        description:
+          "Ids of other reviewers' inline comments you agree with; each gets a '+1' reply. Do not also list them as findings.",
       },
     },
     required: ["score", "summary", "praise", "findings", "safeToMerge", "breakingChanges"],
@@ -79,6 +114,7 @@ export async function executeReview(opts: {
   diff: string;
   checkoutDir: string;
   repoContext: string | null;
+  reviewerComments: ReviewerComments;
   learnings: string[];
   adapter: ProviderAdapter;
   cred: Credential;
@@ -115,7 +151,11 @@ export async function executeReview(opts: {
 
 Description:
 ${opts.prBody ?? "(none)"}
-
+${
+            opts.reviewerComments.inline.length || opts.reviewerComments.general.length
+              ? `\nExisting comments from other reviewers:\n\n${formatReviewerComments(opts.reviewerComments)}\n`
+              : ""
+          }
 Diff:
 ${opts.diff}
 

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import {
   RunReport,
   RunStatus,
+  botLogin,
   complete,
   createCheckRun,
   createPrReview,
@@ -16,9 +17,12 @@ import {
   getProvider,
   installationToken,
   listLearnings,
+  listPrComments,
+  listPrReviewComments,
   loadCredential,
   postPrComment,
   redact,
+  replyToReviewComment,
   PLAN_TRIAGE_SKILL,
   schema,
   TEST_PLAN_SKILL,
@@ -58,6 +62,21 @@ async function main() {
   if (run.mode === "review") {
     const diff = await getPrDiff(run.repo, run.prNumber);
     const checkoutDir = await checkoutPr(run.repo, pr.head.sha, await installationToken(run.repo));
+    const [self, issueComments, inlineComments] = await Promise.all([
+      botLogin(),
+      listPrComments(run.repo, run.prNumber),
+      listPrReviewComments(run.repo, run.prNumber),
+    ]);
+    const reviewerComments = {
+      inline: inlineComments.flatMap((comment) =>
+        comment.user && comment.user.login !== self
+          ? [{ id: comment.id, author: comment.user.login, path: comment.path, line: comment.line ?? null, body: comment.body }]
+          : [],
+      ),
+      general: issueComments.flatMap((comment) =>
+        comment.user && comment.user.login !== self ? [{ author: comment.user.login, body: comment.body ?? "" }] : [],
+      ),
+    };
     const { status, report } = await executeReview({
       repo: run.repo,
       prNumber: run.prNumber,
@@ -66,6 +85,7 @@ async function main() {
       diff,
       checkoutDir,
       repoContext: cfg.repoContext[run.repo] ?? null,
+      reviewerComments,
       learnings: (await listLearnings(run.repo)).map((learning) => learning.text),
       adapter,
       cred,
@@ -84,6 +104,11 @@ async function main() {
     await createCheckRun(run.repo, pr.head.sha, conclusion, report.summary);
     const { body, comments } = formatReview(report, diff);
     await createPrReview(run.repo, run.prNumber, pr.head.sha, body, comments);
+    // Replies are not idempotent either; ids the model invented are dropped.
+    const knownInlineIds = new Set(reviewerComments.inline.map((comment) => comment.id));
+    for (const commentId of report.inlineAgreements ?? []) {
+      if (knownInlineIds.has(commentId)) await replyToReviewComment(run.repo, run.prNumber, commentId, "+1");
+    }
     return;
   }
 

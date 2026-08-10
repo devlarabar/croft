@@ -14,7 +14,8 @@ export function formatReview(
   const orphans: string[] = [];
   for (const finding of report.findings) {
     const lines = commentable.get(finding.file);
-    const body = `**${finding.title} (-${finding.pointsCost}pts)**\n\n${finding.detail}`;
+    const prefix = finding.agreedWith ? `Agreed with ${finding.agreedWith}: ` : "";
+    const body = `${prefix}**${finding.title} (-${finding.pointsCost}pts)**\n\n${finding.detail}`;
     if (lines?.has(finding.endLine)) {
       comments.push({
         path: finding.file,
