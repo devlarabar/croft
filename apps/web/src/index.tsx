@@ -361,6 +361,7 @@ app.post("/settings", async (ctx) => {
     webhooksEnabled: form.get("webhooksEnabled") === "on",
     toolCallCap: Number.isInteger(toolCallCap) && toolCallCap > 0 ? toolCallCap : cfg.toolCallCap,
     repos,
+    autoReviewRepos: repos.filter((repo) => form.get(`autoreview_${repo}`) === "on"),
     allowedUsers: String(form.get("allowedUsers") ?? "")
       .split("\n")
       .map((line) => line.trim())

@@ -427,6 +427,16 @@ export function SettingsPage({ cfg, notice }: { cfg: Config; notice?: string }) 
           </textarea>
         </fieldset>
         <fieldset>
+          <legend>Auto-review (review every PR when opened or marked ready, drafts excluded)</legend>
+          {cfg.repos.map((repo) => (
+            <label style="display:block">
+              <input type="checkbox" name={`autoreview_${repo}`} checked={cfg.autoReviewRepos.includes(repo)} />{" "}
+              {repo}
+            </label>
+          ))}
+          {cfg.repos.length === 0 ? <p>Add a repo to the allow-list and save to enable auto-review here.</p> : null}
+        </fieldset>
+        <fieldset>
           <legend>Allowed users (GitHub usernames who may trigger Croft via comments)</legend>
           <textarea name="allowedUsers" rows={3} cols={50}>
             {cfg.allowedUsers.join("\n")}

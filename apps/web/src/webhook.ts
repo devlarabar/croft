@@ -23,6 +23,31 @@ function webhooks(): Webhooks {
 
 const TRUSTED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
 
+// Auto-review: a PR opened non-draft, or promoted out of draft, starts a
+// review run on repos opted in via config.
+async function handlePullRequest(ctx: Context, body: string): Promise<Response> {
+  const payload = JSON.parse(body) as {
+    action: string;
+    pull_request: { number: number; draft: boolean; head: { repo: { full_name: string } | null } };
+    repository: { full_name: string };
+  };
+  if (payload.action !== "opened" && payload.action !== "ready_for_review")
+    return ctx.text("ignored", 200);
+  if (payload.pull_request.draft) return ctx.text("draft PR", 200);
+
+  const cfg = await getConfig();
+  const repo = payload.repository.full_name;
+  if (!cfg.autoReviewRepos.includes(repo)) return ctx.text("repo not opted in", 200);
+  if (!cfg.webhooksEnabled) return ctx.text("webhooks disabled", 200);
+  // Never on PRs from forks: the agent reads attacker-controllable PR text
+  // while holding GitHub write tools.
+  const head = payload.pull_request.head.repo;
+  if (!head || head.full_name !== repo) return ctx.text("fork PR", 200);
+
+  await startRun({ repo, prNumber: payload.pull_request.number, mode: "review" });
+  return ctx.text("ok", 200);
+}
+
 export async function handleWebhook(ctx: Context): Promise<Response> {
   const body = await ctx.req.text();
   const signature = ctx.req.header("x-hub-signature-256") ?? "";
@@ -39,6 +64,7 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
   if (inserted.length === 0) return ctx.text("duplicate delivery", 200);
 
   const event = ctx.req.header("x-github-event");
+  if (event === "pull_request") return handlePullRequest(ctx, body);
   // Inline review-thread comments arrive as their own event type.
   const isReviewComment = event === "pull_request_review_comment";
   if (event !== "issue_comment" && !isReviewComment) return ctx.text("ignored", 200);
