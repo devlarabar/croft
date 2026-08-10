@@ -45,6 +45,7 @@ import {
   setOAuthState,
   setSession,
 } from "./session.js";
+import { stopJob } from "./scaleway.js";
 import { handleLocalRun } from "./localrun.js";
 import { handleWebhook } from "./webhook.js";
 
@@ -127,7 +128,7 @@ app.post("/runs", async (ctx) => {
 app.post("/runs/:id/retry", async (ctx) => {
   const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, ctx.req.param("id")));
   if (!run) return ctx.notFound();
-  if (run.status !== "failed" && run.status !== "error" && run.status !== "partial") {
+  if (run.status !== "failed" && run.status !== "error" && run.status !== "partial" && run.status !== "canceled") {
     return ctx.text("run is not retryable", 400);
   }
   const result = await startRun({
@@ -138,6 +139,28 @@ app.post("/runs/:id/retry", async (ctx) => {
     freshPlan: run.freshPlan,
   });
   if (!result.started) return ctx.redirect(`/new?error=${encodeURIComponent(result.reason!)}`);
+  return ctx.redirect("/runs");
+});
+
+app.post("/runs/:id/cancel", async (ctx) => {
+  const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, ctx.req.param("id")));
+  if (!run) return ctx.notFound();
+  if (run.status !== "queued" && run.status !== "starting" && run.status !== "running") {
+    return ctx.text("run is not cancelable", 400);
+  }
+  // Best-effort stop: the job may already be dead (crashed worker, stuck row)
+  // and marking the run canceled must still work.
+  if (run.jobRunId) {
+    try {
+      await stopJob(run.jobRunId);
+    } catch (err) {
+      console.error(`stop job for run ${run.id}:`, err);
+    }
+  }
+  await db
+    .update(schema.runs)
+    .set({ status: "canceled", finishedAt: new Date() })
+    .where(eq(schema.runs.id, run.id));
   return ctx.redirect("/runs");
 });
 

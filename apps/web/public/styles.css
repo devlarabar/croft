@@ -225,6 +225,11 @@ legend {
     color: #a8721f;
 }
 
+.status-canceled {
+    background: #e9eaeb;
+    color: #555967;
+}
+
 .status-partial,
 .status-cap_hit {
     background: #ece4f7;

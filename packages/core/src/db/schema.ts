@@ -19,6 +19,7 @@ export type RunStatus =
   | "failed"
   | "partial"
   | "cap_hit"
+  | "canceled"
   | "error";
 
 export type RunMode = "test" | "review";
@@ -68,6 +69,8 @@ export const runs = pgTable("runs", {
   freshPlan: boolean("fresh_plan").notNull().default(false),
   status: text("status").$type<RunStatus>().notNull().default("queued"),
   previewUrl: text("preview_url"),
+  // Scaleway job run id, so the run can be stopped from the dashboard.
+  jobRunId: text("job_run_id"),
   providerId: text("provider_id").notNull(),
   model: text("model").notNull(),
   credentialId: uuid("credential_id").notNull(),

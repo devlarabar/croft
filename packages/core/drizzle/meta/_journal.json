@@ -57,6 +57,13 @@
       "when": 1786375875979,
       "tag": "0007_unknown_white_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1786378571364,
+      "tag": "0008_charming_siren",
+      "breakpoints": true
     }
   ]
 }

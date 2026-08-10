@@ -63,11 +63,12 @@ export async function startRun(opts: {
 
   await db.update(schema.runs).set({ status: "starting", previewUrl }).where(eq(schema.runs.id, runId));
   try {
-    await startJob({
+    const jobRunId = await startJob({
       RUN_ID: runId,
       PR_NUMBER: String(opts.prNumber),
       PREVIEW_URL: previewUrl ?? "",
     });
+    await db.update(schema.runs).set({ jobRunId }).where(eq(schema.runs.id, runId));
   } catch (err) {
     await db
       .update(schema.runs)

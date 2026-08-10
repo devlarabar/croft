@@ -102,9 +102,14 @@ export function RunsPage({ runs }: { runs: Run[] }) {
             </td>
             <td>
               <a href={`/runs/${run.id}`}>video</a>
-              {run.status === "failed" || run.status === "error" || run.status === "partial" ? (
+              {run.status === "failed" || run.status === "error" || run.status === "partial" || run.status === "canceled" ? (
                 <form method="post" action={`/runs/${run.id}/retry`} style="display:inline;margin-left:0.75rem">
                   <button class="link">retry</button>
+                </form>
+              ) : null}
+              {run.status === "queued" || run.status === "starting" || run.status === "running" ? (
+                <form method="post" action={`/runs/${run.id}/cancel`} style="display:inline;margin-left:0.75rem">
+                  <button class="link">cancel</button>
                 </form>
               ) : null}
             </td>
