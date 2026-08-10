@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "auto_review_repos" jsonb DEFAULT '[]'::jsonb NOT NULL;

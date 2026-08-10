@@ -42,6 +42,8 @@ export interface ReviewFinding {
   file: string;
   startLine: number;
   endLine: number;
+  // Set when the finding agrees with another reviewer's general PR comment.
+  agreedWith?: string;
 }
 
 export interface ReviewReport {
@@ -51,6 +53,8 @@ export interface ReviewReport {
   findings: ReviewFinding[];
   safeToMerge: boolean;
   breakingChanges: string;
+  // Ids of other reviewers' inline comments croft agrees with (each gets a "+1" reply).
+  inlineAgreements?: number[];
 }
 
 // UUID ids: artifact keys are `<runId>/<filename>` on a public-read bucket,
@@ -123,6 +127,8 @@ export const config = pgTable("config", {
   webhooksEnabled: boolean("webhooks_enabled").notNull().default(false),
   toolCallCap: integer("tool_call_cap").notNull().default(50),
   repos: jsonb("repos").$type<string[]>().notNull().default([]),
+  // Repos where every PR opened (or marked ready) gets an automatic review run.
+  autoReviewRepos: jsonb("auto_review_repos").$type<string[]>().notNull().default([]),
   allowedUsers: jsonb("allowed_users").$type<string[]>().notNull().default([]),
   previewLogins: jsonb("preview_logins")
     .$type<Record<string, PreviewLogin[]>>()
