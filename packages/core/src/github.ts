@@ -97,7 +97,18 @@ export async function listPrReviewComments(repo: string, prNumber: number) {
   return data;
 }
 
-export type ThreadComment = { id: number; author: string | null; body: string };
+// The App's own login, so a thread says which turns Croft wrote instead of
+// leaving him to guess. Fixed for the life of the app: fetched once.
+let _botLogin: string | undefined;
+export async function botLogin(): Promise<string> {
+  if (!_botLogin) {
+    const { data } = await withRetry(() => app().octokit.request("GET /app"), retry3);
+    _botLogin = `${z.string().parse(data?.slug)}[bot]`;
+  }
+  return _botLogin;
+}
+
+export type ThreadComment = { id: number; author: string | null; body: string; isSelf: boolean };
 export type PrThread = { path?: string; diffHunk?: string; comments: ThreadComment[] };
 
 // The conversation a comment sits in: its whole inline review thread (with the
@@ -109,10 +120,10 @@ export async function getThread(
   kind: "issue" | "review",
 ): Promise<PrThread> {
   if (kind === "issue") {
-    const comments = await listPrComments(repo, prNumber);
-    return { comments: comments.slice(-20).map(toThreadComment) };
+    const [self, comments] = await Promise.all([botLogin(), listPrComments(repo, prNumber)]);
+    return { comments: comments.slice(-20).map((comment) => toThreadComment(comment, self)) };
   }
-  const comments = await listPrReviewComments(repo, prNumber);
+  const [self, comments] = await Promise.all([botLogin(), listPrReviewComments(repo, prNumber)]);
   const trigger = comments.find((comment) => comment.id === commentId);
   // The reply endpoint threads on the root comment; replies carry its id.
   const rootId = trigger?.in_reply_to_id ?? commentId;
@@ -122,20 +133,22 @@ export async function getThread(
   return {
     path: thread[0]?.path,
     diffHunk: thread[0]?.diff_hunk,
-    comments: thread.map(toThreadComment),
+    comments: thread.map((comment) => toThreadComment(comment, self)),
   };
 }
 
-function toThreadComment(comment: {
-  id: number;
-  body?: string;
-  user: { login: string } | null;
-}): ThreadComment {
-  return { id: comment.id, author: comment.user?.login ?? null, body: comment.body ?? "" };
+function toThreadComment(
+  comment: { id: number; body?: string; user: { login: string } | null },
+  self: string,
+): ThreadComment {
+  const author = comment.user?.login ?? null;
+  return { id: comment.id, author, body: comment.body ?? "", isSelf: author === self };
 }
 
 export function formatThread(comments: ThreadComment[]): string {
-  return comments.map((comment) => `@${comment.author ?? "deleted-user"}: ${comment.body}`).join("\n\n");
+  return comments
+    .map((comment) => `@${comment.author ?? "deleted-user"}${comment.isSelf ? " (you)" : ""}: ${comment.body}`)
+    .join("\n\n");
 }
 
 // Reply creation is not idempotent: no retry — post it last, once.
