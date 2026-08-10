@@ -270,7 +270,7 @@ app.post("/chat", async (ctx) => {
   const repo = String(form.get("repo"));
   const prNumber = String(form.get("prNumber"));
   const question = String(form.get("question"));
-  const answer = await answerQuestion(repo, Number(prNumber), question);
+  const answer = await answerQuestion({ repo, prNumber: Number(prNumber), question });
   return ctx.html(<ChatPage repo={repo} prNumber={prNumber} question={question} answer={answer} />);
 });
 

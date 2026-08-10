@@ -79,7 +79,8 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
   if (!allowed) return ctx.text("commenter not allowed", 200);
 
   // Ack receipt on the triggering comment before doing any work.
-  await addEyesReaction(repo, payload.comment.id, isReviewComment ? "review" : "issue");
+  const commentKind = isReviewComment ? "review" : "issue";
+  await addEyesReaction(repo, payload.comment.id, commentKind);
 
   // Answer where the question was asked: in the thread, or on the PR.
   const reply = (text: string) =>
@@ -110,7 +111,7 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
         repo,
         prNumber,
         commentId: payload.comment.id,
-        isReviewComment,
+        kind: commentKind,
         hint: learnCmd[1]!.trim(),
         author: commenter,
         sourceUrl: payload.comment.html_url,
@@ -120,7 +121,14 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
       await reply(`Couldn't add that learning: ${(err as Error).message}`);
     }
   } else {
-    await reply(await answerQuestion(repo, prNumber, command));
+    await reply(
+      await answerQuestion({
+        repo,
+        prNumber,
+        question: command,
+        comment: { id: payload.comment.id, kind: commentKind },
+      }),
+    );
   }
   return ctx.text("ok", 200);
 }

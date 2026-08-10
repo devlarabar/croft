@@ -9,6 +9,7 @@ import {
   LlmTransportError,
   parseRetryAfter,
   ProviderAdapter,
+  TokenUsage,
 } from "../types.js";
 
 type Json = Record<string, unknown>;
@@ -38,7 +39,7 @@ function billingHeader(messages: ChatMessage[]): string | undefined {
 function toParts(parts: ContentPart[]): Json[] {
   return parts.map((part) =>
     part.type === "text"
-      ? { type: "text", text: part.text }
+      ? { type: "text", text: part.text, ...(part.cache ? { cache_control: { type: "ephemeral" } } : {}) }
       : { type: "image", source: { type: "base64", media_type: part.mediaType, data: part.dataBase64 } },
   );
 }
@@ -83,17 +84,40 @@ export function anthropicRequestBody(req: ChatRequest, system: string | Json[] |
   };
 }
 
+interface AnthropicUsage {
+  input_tokens?: number;
+  output_tokens?: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
+}
+
 export interface AnthropicStreamEvent {
   type: string;
   content_block?: { type: string; id?: string; name?: string };
   delta?: { type?: string; text?: string; partial_json?: string; stop_reason?: string };
+  // Input counts arrive with message_start, final output count with message_delta.
+  message?: { usage?: AnthropicUsage };
+  usage?: AnthropicUsage;
 }
 
 // Turns the Anthropic event stream (however transported) into ChatEvents.
 export async function* anthropicChatEvents(events: AsyncIterable<AnthropicStreamEvent>): AsyncIterable<ChatEvent> {
   let block: { id: string; name: string; json: string } | null = null;
   let stopReason: string | null = null;
+  const usage: TokenUsage = { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 };
+  let sawUsage = false;
   for await (const ev of events) {
+    // Every event reports running totals, not deltas, and message_start and
+    // message_delta each carry a different subset: last stated value wins.
+    const reported = ev.message?.usage ?? ev.usage;
+    if (reported) {
+      sawUsage = true;
+      if (reported.input_tokens !== undefined) usage.inputTokens = reported.input_tokens;
+      if (reported.output_tokens !== undefined) usage.outputTokens = reported.output_tokens;
+      if (reported.cache_read_input_tokens !== undefined) usage.cacheReadTokens = reported.cache_read_input_tokens;
+      if (reported.cache_creation_input_tokens !== undefined)
+        usage.cacheWriteTokens = reported.cache_creation_input_tokens;
+    }
     switch (ev.type) {
       case "content_block_start":
         if (ev.content_block?.type === "tool_use") {
@@ -124,6 +148,7 @@ export async function* anthropicChatEvents(events: AsyncIterable<AnthropicStream
   yield {
     type: "done",
     stopReason: stopReason === "tool_use" ? "tool_use" : stopReason === "max_tokens" ? "max_tokens" : "end",
+    ...(sawUsage ? { usage } : {}),
   };
 }
 

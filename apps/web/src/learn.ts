@@ -1,12 +1,12 @@
 import {
   addLearning,
   complete,
+  formatThread,
   getConfig,
   getPr,
   getProvider,
+  getThread,
   LEARNING_MAX_CHARS,
-  listPrComments,
-  listPrReviewComments,
   loadCredential,
 } from "@croft/core";
 import { clip } from "./qa.js";
@@ -31,33 +31,23 @@ async function gatherContext(opts: {
   repo: string;
   prNumber: number;
   commentId: number;
-  isReviewComment: boolean;
+  kind: "issue" | "review";
 }): Promise<string> {
-  const pr = await getPr(opts.repo, opts.prNumber);
+  const [pr, thread] = await Promise.all([
+    getPr(opts.repo, opts.prNumber),
+    getThread(opts.repo, opts.prNumber, opts.commentId, opts.kind),
+  ]);
   const header = `PR #${opts.prNumber} in ${opts.repo}: ${pr.title}\n\nDescription:\n${clip(pr.body ?? "(none)", 5_000)}`;
+  const transcript = clip(formatThread(thread.comments), 20_000);
 
-  if (!opts.isReviewComment) {
-    const comments = await listPrComments(opts.repo, opts.prNumber);
-    const thread = comments
-      .slice(-20)
-      .map((comment) => `@${comment.user?.login}: ${comment.body}`)
-      .join("\n\n");
-    return `${header}\n\nComments:\n${clip(thread, 20_000)}`;
-  }
-
-  const comments = await listPrReviewComments(opts.repo, opts.prNumber);
-  const trigger = comments.find((comment) => comment.id === opts.commentId);
-  // The reply endpoint threads on the root comment; replies carry its id.
-  const rootId = trigger?.in_reply_to_id ?? opts.commentId;
-  const thread = comments.filter((comment) => comment.id === rootId || comment.in_reply_to_id === rootId);
-  const hunk = thread[0]?.diff_hunk ?? "";
+  if (opts.kind === "issue") return `${header}\n\nComments:\n${transcript}`;
   return `${header}
 
-Code under discussion (${thread[0]?.path ?? "unknown file"}):
-${clip(hunk, 5_000)}
+Code under discussion (${thread.path ?? "unknown file"}):
+${clip(thread.diffHunk ?? "", 5_000)}
 
 Review thread:
-${clip(thread.map((comment) => `@${comment.user?.login}: ${comment.body}`).join("\n\n"), 20_000)}`;
+${transcript}`;
 }
 
 // Derives a learning from the comment's surroundings, stores it, returns the
@@ -66,7 +56,7 @@ export async function learnFromComment(opts: {
   repo: string;
   prNumber: number;
   commentId: number;
-  isReviewComment: boolean;
+  kind: "issue" | "review";
   hint: string;
   author: string;
   sourceUrl: string;
@@ -82,7 +72,7 @@ export async function learnFromComment(opts: {
 Write the learning now.`;
 
   const ask = (extra: string) =>
-    complete(adapter, cred, cfg.activeModel!.model, LEARN_SYSTEM, prompt + extra).then((out) => out.trim());
+    complete(adapter, cred, cfg.activeModel!.model, LEARN_SYSTEM, prompt + extra).then(({ text }) => text.trim());
   let text = await ask("");
   if (text.length > LEARNING_MAX_CHARS) {
     text = await ask(

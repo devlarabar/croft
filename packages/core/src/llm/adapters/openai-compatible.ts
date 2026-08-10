@@ -9,6 +9,7 @@ import {
   OAuthConfig,
   parseRetryAfter,
   ProviderAdapter,
+  TokenUsage,
 } from "../types.js";
 
 type Json = Record<string, unknown>;
@@ -91,6 +92,7 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
       body: JSON.stringify({
         model: req.model,
         stream: true,
+        stream_options: { include_usage: true },
         max_completion_tokens: req.maxTokens ?? 8192,
         messages: toWireMessages(req.system, req.messages),
         ...(req.tools?.length
@@ -115,6 +117,7 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
 
     const calls: ToolCallAccumulator[] = [];
     let finish: string | null = null;
+    let usage: TokenUsage | undefined;
     for await (const data of sseData(res.body)) {
       if (data === "[DONE]") break;
       const chunk = JSON.parse(data) as {
@@ -125,7 +128,21 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
           };
           finish_reason?: string | null;
         }[];
+        usage?: {
+          prompt_tokens?: number;
+          completion_tokens?: number;
+          prompt_tokens_details?: { cached_tokens?: number };
+        };
       };
+      // The usage chunk carries no choices, so read it before the choice guard.
+      if (chunk.usage) {
+        usage = {
+          inputTokens: chunk.usage.prompt_tokens ?? 0,
+          outputTokens: chunk.usage.completion_tokens ?? 0,
+          cacheReadTokens: chunk.usage.prompt_tokens_details?.cached_tokens ?? 0,
+          cacheWriteTokens: 0,
+        };
+      }
       const choice = chunk.choices?.[0];
       if (!choice) continue;
       if (choice.delta?.content) yield { type: "text_delta", text: choice.delta.content };
@@ -144,6 +161,7 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
     yield {
       type: "done",
       stopReason: calls.length ? "tool_use" : finish === "length" ? "max_tokens" : "end",
+      ...(usage ? { usage } : {}),
     };
   }
 }

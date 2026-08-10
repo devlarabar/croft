@@ -8,6 +8,7 @@ import {
   Credential,
   LlmTransportError,
   ProviderAdapter,
+  TokenUsage,
   ToolCall,
   ToolDef,
   isRetryableLlmError,
@@ -23,6 +24,7 @@ interface Turn {
   text: string;
   toolCalls: ToolCall[];
   stopReason: "end" | "tool_use" | "max_tokens";
+  usage?: TokenUsage;
 }
 
 const MAX_LLM_ATTEMPTS = 5;
@@ -42,7 +44,10 @@ async function chatTurn(adapter: ProviderAdapter, req: ChatRequest, cred: Creden
       for await (const ev of adapter.chat(req, cred)) {
         if (ev.type === "text_delta") turn.text += ev.text;
         else if (ev.type === "tool_call") turn.toolCalls.push(ev.call);
-        else turn.stopReason = ev.stopReason;
+        else {
+          turn.stopReason = ev.stopReason;
+          turn.usage = ev.usage;
+        }
       }
       return turn;
     },
@@ -78,6 +83,7 @@ export async function runAgentLoop(
       opts.cred,
     );
     messages.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls });
+    if (turn.usage) await opts.onEvent("usage", turn.usage);
     if (turn.text) await opts.onEvent("assistant_text", { text: turn.text });
     if (turn.toolCalls.length === 0) return { outcome: "done", messages };
 
@@ -120,18 +126,16 @@ async function executeTool(tool: AgentTool | undefined, call: ToolCall): Promise
   }
 }
 
-// One-shot, no tools: Q&A mode and test-plan generation.
+// One-shot, no tools: Q&A mode and test-plan generation. Pass parts instead of
+// a string to place a prompt-cache breakpoint.
 export async function complete(
   adapter: ProviderAdapter,
   cred: Credential,
   model: string,
   system: string,
-  prompt: string,
-): Promise<string> {
-  const turn = await chatTurn(
-    adapter,
-    { model, system, messages: [{ role: "user", content: [{ type: "text", text: prompt }] }] },
-    cred,
-  );
-  return turn.text;
+  prompt: string | ContentPart[],
+): Promise<{ text: string; usage?: TokenUsage }> {
+  const content = typeof prompt === "string" ? [{ type: "text" as const, text: prompt }] : prompt;
+  const turn = await chatTurn(adapter, { model, system, messages: [{ role: "user", content }] }, cred);
+  return { text: turn.text, usage: turn.usage };
 }

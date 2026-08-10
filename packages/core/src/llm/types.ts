@@ -1,6 +1,15 @@
 export type ContentPart =
-  | { type: "text"; text: string }
+  // cache: mark this part as a prompt-cache breakpoint (Anthropic dialect only;
+  // ignored elsewhere). Everything up to it must be byte-stable across calls.
+  | { type: "text"; text: string; cache?: true }
   | { type: "image"; mediaType: "image/jpeg" | "image/png"; dataBase64: string };
+
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}
 
 export interface ToolCall {
   id: string;
@@ -30,7 +39,8 @@ export interface ChatRequest {
 export type ChatEvent =
   | { type: "text_delta"; text: string }
   | { type: "tool_call"; call: ToolCall }
-  | { type: "done"; stopReason: "end" | "tool_use" | "max_tokens" };
+  // usage is absent when the provider reported none.
+  | { type: "done"; stopReason: "end" | "tool_use" | "max_tokens"; usage?: TokenUsage };
 
 export interface Credential {
   kind: "api_key" | "oauth";

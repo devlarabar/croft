@@ -48,6 +48,12 @@ async function main() {
   const adapter = getProvider(run.providerId);
   const cred = await loadCredential(run.credentialId, adapter.oauth);
   const pr = await getPr(run.repo, run.prNumber);
+  // Plan calls send the whole diff: their tokens belong in the run's ledger too.
+  const ask = async (system: string, prompt: string) => {
+    const { text, usage } = await complete(adapter, cred, run.model, system, prompt);
+    if (usage) await emit("usage", usage);
+    return text.trim();
+  };
 
   if (run.mode === "review") {
     const diff = await getPrDiff(run.repo, run.prNumber);
@@ -88,9 +94,7 @@ async function main() {
   let plan = run.freshPlan ? null : extractTestPlan(pr.body);
   let generatedPlan: string | null = null;
   if (plan) {
-    const verdict = (
-      await complete(adapter, cred, run.model, PLAN_TRIAGE_SKILL, plan)
-    ).trim();
+    const verdict = await ask(PLAN_TRIAGE_SKILL, plan);
     if (!verdict.startsWith("USABLE")) {
       await emit("plan_rejected", { plan });
       plan = null;
@@ -98,17 +102,12 @@ async function main() {
   }
   if (!plan) {
     const diff = await getPrDiff(run.repo, run.prNumber);
-    plan = (
-      await complete(
-        adapter,
-        cred,
-        run.model,
-        TEST_PLAN_SKILL,
-        `PR title: ${pr.title}\n\nPR description:\n${pr.body ?? "(none)"}\n\nDeployment URL: ${PREVIEW_URL}${
-          cfg.repoContext[run.repo] ? `\n\nRepository context from its maintainers:\n${cfg.repoContext[run.repo]}` : ""
-        }\n\nDiff:\n${diff}`,
-      )
-    ).trim();
+    plan = await ask(
+      TEST_PLAN_SKILL,
+      `PR title: ${pr.title}\n\nPR description:\n${pr.body ?? "(none)"}\n\nDeployment URL: ${PREVIEW_URL}${
+        cfg.repoContext[run.repo] ? `\n\nRepository context from its maintainers:\n${cfg.repoContext[run.repo]}` : ""
+      }\n\nDiff:\n${diff}`,
+    );
     if (!plan || plan.includes("NOTHING_TESTABLE")) {
       await emit("nothing_testable", {});
       const report: RunReport = {

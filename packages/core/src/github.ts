@@ -97,6 +97,47 @@ export async function listPrReviewComments(repo: string, prNumber: number) {
   return data;
 }
 
+export type ThreadComment = { id: number; author: string | null; body: string };
+export type PrThread = { path?: string; diffHunk?: string; comments: ThreadComment[] };
+
+// The conversation a comment sits in: its whole inline review thread (with the
+// hunk under discussion), or the PR's most recent top-level comments.
+export async function getThread(
+  repo: string,
+  prNumber: number,
+  commentId: number,
+  kind: "issue" | "review",
+): Promise<PrThread> {
+  if (kind === "issue") {
+    const comments = await listPrComments(repo, prNumber);
+    return { comments: comments.slice(-20).map(toThreadComment) };
+  }
+  const comments = await listPrReviewComments(repo, prNumber);
+  const trigger = comments.find((comment) => comment.id === commentId);
+  // The reply endpoint threads on the root comment; replies carry its id.
+  const rootId = trigger?.in_reply_to_id ?? commentId;
+  const thread = comments.filter(
+    (comment) => comment.id === rootId || comment.in_reply_to_id === rootId,
+  );
+  return {
+    path: thread[0]?.path,
+    diffHunk: thread[0]?.diff_hunk,
+    comments: thread.map(toThreadComment),
+  };
+}
+
+function toThreadComment(comment: {
+  id: number;
+  body?: string;
+  user: { login: string } | null;
+}): ThreadComment {
+  return { id: comment.id, author: comment.user?.login ?? null, body: comment.body ?? "" };
+}
+
+export function formatThread(comments: ThreadComment[]): string {
+  return comments.map((comment) => `@${comment.author ?? "deleted-user"}: ${comment.body}`).join("\n\n");
+}
+
 // Reply creation is not idempotent: no retry — post it last, once.
 export async function replyToReviewComment(
   repo: string,
