@@ -36,6 +36,7 @@ import {
 } from "./pages.js";
 import { answerQuestion } from "./qa.js";
 import { startRun } from "./runs.js";
+import { reapDeadRuns } from "./watchdog.js";
 import {
   getOAuthState,
   githubExchange,
@@ -403,3 +404,7 @@ serve({ fetch: app.fetch, port }, () => {
   // Diagnostic: compare against the worker's boot log and GET /keyfp.
   console.log("TOKEN_ENC_KEY fp", createHash("sha256").update(process.env.TOKEN_ENC_KEY!).digest("hex").slice(0, 8));
 });
+
+setInterval(() => {
+  reapDeadRuns().catch((err) => console.error("watchdog", err));
+}, 60_000);
