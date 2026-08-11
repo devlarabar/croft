@@ -96,12 +96,13 @@ async function main() {
     });
     if (!report) {
       await setStatus("error", { error: "agent finished without submitting a review", finishedAt: new Date() });
+      await createCheckRun(run.repo, pr.head.sha, "failure", "Croft errored before submitting a review.");
       return;
     }
     await setStatus(status, { report, finishedAt: new Date() });
-    // A review that ran out of budget must not read as green.
-    let conclusion: "success" | "failure" | "neutral" = report.safeToMerge ? "success" : "failure";
-    if (status === "cap_hit") conclusion = "neutral";
+    // The check only fails when the run itself errors; a not-safe-to-merge
+    // review (and a cap-hit run) reads as neutral, never as failed CI.
+    const conclusion = report.safeToMerge && status !== "cap_hit" ? "success" : "neutral";
     await createCheckRun(run.repo, pr.head.sha, conclusion, report.summary);
     const { body, comments } = formatReview(report, diff, cfg.findingsPing);
     await createPrReview(run.repo, run.prNumber, pr.head.sha, body, comments);
@@ -176,9 +177,9 @@ async function main() {
   const error = report ? null : "agent finished without submitting a report";
   await setStatus(status, { report, error, finishedAt: new Date() });
 
-  // An incomplete run must never masquerade as green: cap_hit/partial → neutral.
-  const conclusion =
-    status === "passed" ? "success" : status === "cap_hit" || status === "partial" ? "neutral" : "failure";
+  // The check only fails when the run itself errors; failed/partial/cap_hit
+  // runs read as neutral so CI never shows red for app findings.
+  const conclusion = status === "passed" ? "success" : status === "error" ? "failure" : "neutral";
   await createCheckRun(run.repo, pr.head.sha, conclusion, report?.summary ?? "Run finished without a report.");
   // Comment creation is not idempotent — post it last, once.
   await postPrComment(
@@ -202,6 +203,11 @@ main()
     console.error(details);
     try {
       await setStatus("error", { error: details, finishedAt: new Date() });
+      const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, RUN_ID));
+      if (run) {
+        const pr = await getPr(run.repo, run.prNumber);
+        await createCheckRun(run.repo, pr.head.sha, "failure", "Croft run errored.");
+      }
     } catch (statusErr) {
       console.error("failed to record error status", statusErr);
     }
