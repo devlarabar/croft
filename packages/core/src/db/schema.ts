@@ -133,6 +133,8 @@ export const config = pgTable("config", {
   // Repos where every PR opened (or marked ready) gets an automatic review run.
   autoReviewRepos: jsonb("auto_review_repos").$type<string[]>().notNull().default([]),
   allowedUsers: jsonb("allowed_users").$type<string[]>().notNull().default([]),
+  // GitHub username mentioned in review comments to validate/fix findings; null disables the ping.
+  findingsPing: text("findings_ping"),
   previewLogins: jsonb("preview_logins")
     .$type<Record<string, PreviewLogin[]>>()
     .notNull()

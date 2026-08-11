@@ -391,6 +391,7 @@ app.post("/settings", async (ctx) => {
       .filter(Boolean),
     previewLogins,
     repoContext,
+    findingsPing: String(form.get("findingsPing") ?? "").trim().replace(/^@/, "") || null,
   });
   return ctx.redirect("/settings?notice=Saved");
 });

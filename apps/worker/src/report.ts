@@ -8,6 +8,7 @@ import type { Screenshot } from "./browser.js";
 export function formatReview(
   report: ReviewReport,
   diff: string,
+  findingsPing: string | null,
 ): { body: string; comments: ReviewComment[] } {
   const commentable = commentableLines(diff);
   const comments: ReviewComment[] = [];
@@ -43,6 +44,20 @@ export function formatReview(
     report.safeToMerge ? "**Safe to merge into main**." : "**Not safe to merge into main yet.**",
     report.breakingChanges,
   );
+  if (findingsPing && report.findings.length) {
+    lines.push(
+      "",
+      `@${findingsPing} please validate each finding below: if it's real, push a fix to this branch; if not, reply to it (pinging @croft) explaining why.`,
+      "",
+      "<details><summary>Findings with context</summary>",
+      "",
+      ...report.findings.map(
+        (finding) => `- \`${finding.file}:${finding.startLine}-${finding.endLine}\` — **${finding.title}**: ${finding.detail}`,
+      ),
+      "",
+      "</details>",
+    );
+  }
   return { body: lines.join("\n"), comments };
 }
 

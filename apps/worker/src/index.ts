@@ -102,7 +102,7 @@ async function main() {
     let conclusion: "success" | "failure" | "neutral" = report.safeToMerge ? "success" : "failure";
     if (status === "cap_hit") conclusion = "neutral";
     await createCheckRun(run.repo, pr.head.sha, conclusion, report.summary);
-    const { body, comments } = formatReview(report, diff);
+    const { body, comments } = formatReview(report, diff, cfg.findingsPing);
     await createPrReview(run.repo, run.prNumber, pr.head.sha, body, comments);
     // Replies are not idempotent either; ids the model invented are dropped.
     const knownInlineIds = new Set(reviewerComments.inline.map((comment) => comment.id));

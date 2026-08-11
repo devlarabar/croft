@@ -426,6 +426,10 @@ export function SettingsPage({ cfg, notice }: { cfg: Config; notice?: string }) 
           </label>
         </fieldset>
         <fieldset>
+          <legend>Findings ping (GitHub username mentioned in reviews to validate &amp; fix findings; blank disables)</legend>
+          <input name="findingsPing" placeholder="username" value={cfg.findingsPing ?? undefined} />
+        </fieldset>
+        <fieldset>
           <legend>Repo allow-list (one owner/repo per line)</legend>
           <textarea name="repos" rows={4} cols={50}>
             {cfg.repos.join("\n")}

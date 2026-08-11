@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "findings_ping" text;
