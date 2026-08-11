@@ -51,10 +51,14 @@ export function formatReview(
       "",
       "<details><summary>Findings with context</summary>",
       "",
-      ...report.findings.map(
-        (finding) => `- \`${finding.file}:${finding.startLine}-${finding.endLine}\` — **${finding.title}**: ${finding.detail}`,
-      ),
-      "",
+      ...report.findings.flatMap((finding) => [
+        `\`${finding.file}:${finding.startLine}-${finding.endLine}\` — **${finding.title}**`,
+        "",
+        "```",
+        finding.fixContext,
+        "```",
+        "",
+      ]),
       "</details>",
     );
   }

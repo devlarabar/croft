@@ -40,6 +40,8 @@ export interface ReviewFinding {
   title: string;
   pointsCost: number;
   detail: string;
+  // Denser brief for the agent pinged to fix the finding.
+  fixContext: string;
   file: string;
   startLine: number;
   endLine: number;
