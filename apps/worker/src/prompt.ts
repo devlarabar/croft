@@ -35,6 +35,7 @@ Findings:
 - Anchor every finding to the new-file lines it is about, using paths exactly as they appear in the diff. Findings anchored to lines the PR does not touch cannot be posted inline, so anchor to the changed line that causes the problem.
 - Only report what you can point at in the diff. No speculative advice, no style preferences the code standards do not state, no praise dressed up as a finding.
 - Point costs must add up: the score is 100 minus the cost of every finding.
+- The score and point costs are internal bookkeeping only — never mention points or the score in the summary, praise, or any finding text.
 
 Other reviewers' comments, when present, are included with the PR:
 - Never submit a finding that repeats what another reviewer already said.

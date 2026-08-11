@@ -2,6 +2,14 @@ import { commentableLines } from "@croft/core";
 import type { ReviewComment, ReviewReport, RunReport, RunStatus } from "@croft/core";
 import type { Screenshot } from "./browser.js";
 
+// The score stays internal; users only ever see a severity derived from it.
+function severity(pointsCost: number): string {
+  if (pointsCost >= 20) return "🔴 Critical";
+  if (pointsCost >= 10) return "🟠 High";
+  if (pointsCost >= 4) return "🟡 Medium";
+  return "🟢 Low";
+}
+
 // Splits a review into the summary body and its inline comments. A finding
 // anchored outside the diff can't be posted inline (GitHub rejects the whole
 // review), so it falls back into the body.
@@ -16,7 +24,7 @@ export function formatReview(
   for (const finding of report.findings) {
     const lines = commentable.get(finding.file);
     const prefix = finding.agreedWith ? `Agreed with ${finding.agreedWith}: ` : "";
-    const body = `${prefix}**${finding.title} (-${finding.pointsCost}pts)**\n\n${finding.detail}`;
+    const body = `${prefix}**${finding.title}** - ${severity(finding.pointsCost)}\n\n${finding.detail}`;
     if (lines?.has(finding.endLine)) {
       comments.push({
         path: finding.file,
@@ -29,7 +37,7 @@ export function formatReview(
     }
   }
 
-  const lines = [`## Croft review: ${report.score}/100`, "", report.summary, ""];
+  const lines = ["## Croft review", "", report.summary, ""];
   if (report.praise.length) {
     lines.push("**What's good**", "", ...report.praise.map((item) => `- ${item}`), "");
   }

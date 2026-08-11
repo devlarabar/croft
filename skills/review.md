@@ -37,16 +37,21 @@ When reviewing code, consider the following:
 
 ## Output
 
-### Format
+### Scoring (internal only)
 
-score: <score>
+Assign every finding a point cost reflecting how serious it is; the score is
+100 minus the cost of all findings. The score and point costs are internal
+bookkeeping used to derive each finding's severity (critical, high, medium, or
+low) — never mention points or the score in anything the user reads.
+
+### Format
 
 <What does it do: human readable, beginner-friendly summary of changes and context. Max 30 words.>
 
 <What's great about it, as a numbered list, max 3 items, max 10 words per item.>
 
-<What should you change as a numbered list. Each change shows how many points it
-costs, and a link to the line of code that should be changed. Keep sentences
+<What should you change as a numbered list. Each change shows its severity, and
+a link to the line of code that should be changed. Keep sentences
 exceptionally short and to the point (max 25 words each); no filler or technical
 jargon; extremely casual tone; phrased in terms of cause and effect (i.e. "X
 causes Y. Try Z instead.").>
@@ -54,8 +59,6 @@ causes Y. Try Z instead.").>
 <Is it safe to merge into main, or are there any remaining breaking changes?>
 
 ### Example 1
-
-Score: 95/100
 
 New feature to save custom variables (phrases) to the users organization profile for use in templates. New database migration, feature flag, and UI/UX to manage the feature.
 
@@ -65,17 +68,15 @@ New feature to save custom variables (phrases) to the users organization profile
 3. Highly readable
 
 ## Findings
-1. **Index-less database migrations (-5pts):** Let's add an index on `user_id` to avoid sluggish queries.
+1. **Index-less database migrations** - 🟡 Medium: Let's add an index on `user_id` to avoid sluggish queries.
    - `0192_my_cool_migration.sql:12-29`
-2. **Unbounded retries (-5pts):** Let's bound retries of `fetchLLMMetadata` to avoid excess API calls.
+2. **Unbounded retries** - 🟡 Medium: Let's bound retries of `fetchLLMMetadata` to avoid excess API calls.
    - `useFetchLLMMetadata.tsx:49-78`
 
 **Safe to merge into main**.
 No breaking changes.
 
 ### Example 2
-
-Score: 100/100
 
 Added telemetry for when users regenerate notes.
 
@@ -91,8 +92,6 @@ No breaking changes.
 
 ### Example 3
 
-Score: 67/100
-
 New "model arena" feature wherein users are occasionally presented with two note
 outputs and must select one.
 
@@ -101,18 +100,18 @@ outputs and must select one.
 2. Excellent, concise docstrings and comments
 
 ## Findings
-1. **Hand-rolled analytics, could use Posthog (-20pts):** Avoid new tables
+1. **Hand-rolled analytics, could use Posthog** - 🔴 Critical: Avoid new tables
    and excess code. Place config and analytics in Posthog. Can try `Experiments`
    or use Feature Flags for challenger models & percentage.
    - `0190_my_cool_migration.sql:0-37`
-2. **Unclear model fallback (-5pts):** Let's use arena only for templates with
+2. **Unclear model fallback** - 🟡 Medium: Let's use arena only for templates with
    no explicit model set (i.e. using the default model). Clearer model fallback
    behaviour.
    - `modelArena.tsx:55-89`
-2. **Verbose docstring (-5pts):** Docstring is 15 lines and restates tons of
+2. **Verbose docstring** - 🟡 Medium: Docstring is 15 lines and restates tons of
    code. Trim to one-liner explaining the _what_, not the _how_.
    - `modelArena.tsx:10-25`
-2. **Race condition when closing modal (-3pts):** Modal can close before the
+2. **Race condition when closing modal** - 🟢 Low: Modal can close before the
    user's choice is saved; can cause a flash of note A before switching to note
    B. Await save before closing.
    - `modelArenaDialog.tsx:12-39`
