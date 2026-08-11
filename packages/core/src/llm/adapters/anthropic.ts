@@ -197,6 +197,7 @@ class AnthropicAdapter implements ProviderAdapter {
       method: "POST",
       headers: { "content-type": "application/json", "anthropic-version": "2023-06-01", ...auth },
       body: JSON.stringify({ model: req.model, stream: true, ...anthropicRequestBody(req, system) }),
+      signal: req.signal,
     });
     if (!res.ok || !res.body) {
       throw new LlmTransportError(

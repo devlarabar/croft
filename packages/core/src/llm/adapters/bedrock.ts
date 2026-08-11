@@ -51,9 +51,11 @@ class BedrockAdapter implements ProviderAdapter {
             ...anthropicRequestBody(req, req.system),
           }),
         }),
+        { abortSignal: req.signal },
       );
       body = res.body!;
     } catch (err) {
+      if (req.signal?.aborted) throw err;
       const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
       throw new LlmTransportError(`bedrock ${status ?? "error"}: ${(err as Error).message}`, status);
     }

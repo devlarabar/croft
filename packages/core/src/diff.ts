@@ -2,6 +2,52 @@
 // JSON that no reviewer reads and that would dwarf the rest of the diff.
 const GENERATED = /(^|\/)meta\/(_journal|\d+_snapshot)\.json$/;
 
+export function compactMovedLines(diff: string): string {
+  const lines = diff.split("\n");
+  const moved = new Set<number>();
+  const shingles = { "+": new Map<string, number[][]>(), "-": new Map<string, number[][]>() };
+  for (const sign of ["+", "-"] as const) {
+    let block: number[] = [];
+    const flush = () => {
+      for (let offset = 0; offset <= block.length - 5; offset++) {
+        const indices = block.slice(offset, offset + 5);
+        const key = indices.map((index) => lines[index]!.slice(1).trim()).join("\n");
+        if (!key.trim()) continue;
+        const matches = shingles[sign].get(key) ?? [];
+        matches.push(indices);
+        shingles[sign].set(key, matches);
+      }
+      block = [];
+    };
+    lines.forEach((line, index) => {
+      if (line.startsWith(sign) && !line.startsWith(`${sign}${sign}${sign}`)) block.push(index);
+      else flush();
+    });
+    flush();
+  }
+  for (const [key, additions] of shingles["+"]) {
+    const deletions = shingles["-"].get(key);
+    if (!deletions) continue;
+    for (const indices of [...additions, ...deletions]) indices.forEach((index) => moved.add(index));
+  }
+  if (!moved.size) return diff;
+  const compacted: string[] = [];
+  for (let index = 0; index < lines.length; index++) {
+    if (!moved.has(index)) {
+      compacted.push(lines[index]!);
+      continue;
+    }
+    const sign = lines[index]![0];
+    let count = 1;
+    while (moved.has(index + 1) && lines[index + 1]![0] === sign) {
+      count++;
+      index++;
+    }
+    compacted.push(`${sign}… ${count} unchanged lines also ${sign === "+" ? "removed" : "added"} elsewhere (omitted)`);
+  }
+  return compacted.join("\n");
+}
+
 export function stripGeneratedFiles(diff: string): string {
   const sections = diff.split(/^(?=diff --git )/m);
   const dropped: string[] = [];

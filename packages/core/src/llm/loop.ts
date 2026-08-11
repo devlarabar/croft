@@ -63,6 +63,7 @@ export interface AgentLoopOptions {
   messages: ChatMessage[];
   tools: AgentTool[];
   toolCallCap?: number;
+  deadlineAt?: number;
   onEvent(type: string, payload: unknown): Promise<void>;
 }
 
@@ -70,18 +71,26 @@ export interface AgentLoopOptions {
 // with a hard cap on tool calls per run (the real cost bound).
 export async function runAgentLoop(
   opts: AgentLoopOptions,
-): Promise<{ outcome: "done" | "cap_hit"; messages: ChatMessage[] }> {
+): Promise<{ outcome: "done" | "cap_hit" | "deadline_hit"; messages: ChatMessage[] }> {
   const cap = opts.toolCallCap ?? 50;
   const messages = [...opts.messages];
   const byName = new Map(opts.tools.map((tool) => [tool.def.name, tool]));
   let toolCalls = 0;
 
   while (true) {
-    const turn = await chatTurn(
-      opts.adapter,
-      { model: opts.model, system: opts.system, messages, tools: opts.tools.map((tool) => tool.def) },
-      opts.cred,
-    );
+    if (opts.deadlineAt && Date.now() >= opts.deadlineAt) return { outcome: "deadline_hit", messages };
+    const signal = opts.deadlineAt ? AbortSignal.timeout(Math.max(1, opts.deadlineAt - Date.now())) : undefined;
+    let turn: Turn;
+    try {
+      turn = await chatTurn(
+        opts.adapter,
+        { model: opts.model, system: opts.system, messages, tools: opts.tools.map((tool) => tool.def), signal },
+        opts.cred,
+      );
+    } catch (err) {
+      if (signal?.aborted) return { outcome: "deadline_hit", messages };
+      throw err;
+    }
     messages.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls });
     if (turn.usage) await opts.onEvent("usage", turn.usage);
     if (turn.text) await opts.onEvent("assistant_text", { text: turn.text });

@@ -77,7 +77,7 @@ async function main() {
         comment.user && comment.user.login !== self ? [{ author: comment.user.login, body: comment.body ?? "" }] : [],
       ),
     };
-    const { status, report } = await executeReview({
+    const { status, report, incompleteReason } = await executeReview({
       repo: run.repo,
       prNumber: run.prNumber,
       prTitle: pr.title,
@@ -103,8 +103,11 @@ async function main() {
     // The check only fails when the run itself errors; a not-safe-to-merge
     // review (and a cap-hit run) reads as neutral, never as failed CI.
     const conclusion = report.safeToMerge && status !== "cap_hit" ? "success" : "neutral";
-    await createCheckRun(run.repo, pr.head.sha, conclusion, report.summary);
-    const { body, comments } = formatReview(report, diff, cfg.findingsPing);
+    const checkSummary = incompleteReason
+      ? `${report.summary} Croft submitted early after reaching its ${incompleteReason === "time_limit" ? "review time" : "tool-call"} limit.`
+      : report.summary;
+    await createCheckRun(run.repo, pr.head.sha, conclusion, checkSummary);
+    const { body, comments } = formatReview(report, diff, cfg.findingsPing, incompleteReason);
     await createPrReview(run.repo, run.prNumber, pr.head.sha, body, comments);
     // Replies are not idempotent either; ids the model invented are dropped.
     const knownInlineIds = new Set(reviewerComments.inline.map((comment) => comment.id));

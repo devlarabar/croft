@@ -34,6 +34,7 @@ export interface ChatRequest {
   messages: ChatMessage[];
   tools?: ToolDef[];
   maxTokens?: number;
+  signal?: AbortSignal;
 }
 
 export type ChatEvent =

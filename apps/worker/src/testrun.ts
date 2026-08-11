@@ -108,7 +108,7 @@ export async function executeTestRun(opts: {
       toolCallCap: opts.toolCallCap,
       onEvent: opts.emit,
     });
-    outcome = result.outcome;
+    outcome = result.outcome === "deadline_hit" ? "cap_hit" : result.outcome;
 
     if (outcome === "cap_hit" && !report) {
       // The tokens are spent — get the evidence into a report anyway.

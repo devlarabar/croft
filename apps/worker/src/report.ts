@@ -17,6 +17,7 @@ export function formatReview(
   report: ReviewReport,
   diff: string,
   findingsPing: string | null,
+  incompleteReason: "time_limit" | "tool_cap" | null,
 ): { body: string; comments: ReviewComment[] } {
   const commentable = commentableLines(diff);
   const comments: ReviewComment[] = [];
@@ -38,6 +39,14 @@ export function formatReview(
   }
 
   const lines = ["## Croft review", "", report.summary, ""];
+  if (incompleteReason) {
+    lines.push(
+      incompleteReason === "time_limit"
+        ? "> ⚠️ Croft reached the review time limit and submitted the findings collected so far."
+        : "> ⚠️ Croft reached the review tool-call limit and submitted the findings collected so far.",
+      "",
+    );
+  }
   if (report.praise.length) {
     lines.push("**What's good**", "", ...report.praise.map((item) => `- ${item}`), "");
   }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { compactMovedLines } from "@croft/core/diff";
 import type { ReviewReport, RunStatus } from "@croft/core/db/schema";
 import { runAgentLoop } from "@croft/core/llm/loop";
 import type { AgentTool } from "@croft/core/llm/loop";
@@ -7,6 +8,9 @@ import { CODE_STANDARDS, REVIEW_SKILL } from "@croft/core/skills";
 import { docsTool } from "./docs.js";
 import { reviewSystemPrompt } from "./prompt.js";
 import { repoTools } from "./repo.js";
+
+const REVIEW_EXPLORATION_MS = 24 * 60_000;
+const FINAL_SUBMISSION_MS = 3 * 60_000;
 
 const reviewSchema = z.object({
   score: z.number(),
@@ -140,7 +144,11 @@ export async function executeReview(opts: {
   toolCallCap?: number;
   agentFixContext: boolean;
   emit(type: string, payload: unknown): Promise<void>;
-}): Promise<{ status: RunStatus; report: ReviewReport | null }> {
+}): Promise<{
+  status: RunStatus;
+  report: ReviewReport | null;
+  incompleteReason: "time_limit" | "tool_cap" | null;
+}> {
   // A property, not a local: the tool assigns it in a closure, which
   // control-flow analysis can't see.
   const submitted: { report: ReviewReport | null } = { report: null };
@@ -176,7 +184,7 @@ ${
               : ""
           }
 Diff:
-${opts.diff}
+${compactMovedLines(opts.diff)}
 
 Review it now.`,
         },
@@ -192,11 +200,12 @@ Review it now.`,
     messages: initial,
     tools: [...repoTools(opts.checkoutDir), docsTool, submitTool],
     toolCallCap: opts.toolCallCap,
+    deadlineAt: Date.now() + REVIEW_EXPLORATION_MS,
     onEvent: opts.emit,
   });
 
-  if (result.outcome === "cap_hit" && !submitted.report) {
-    // The tokens are spent — get the findings out anyway.
+  if (result.outcome !== "done" && !submitted.report) {
+    const reason = result.outcome === "deadline_hit" ? "review time limit" : "tool-call budget cap";
     await runAgentLoop({
       adapter: opts.adapter,
       cred: opts.cred,
@@ -209,19 +218,22 @@ Review it now.`,
           content: [
             {
               type: "text",
-              text: "You hit the tool-call budget cap. Call `submit_review` now with what you found so far.",
+              text: `You hit the ${reason}. Call \`submit_review\` now with what you found so far.`,
             },
           ],
         },
       ],
       tools: [submitTool],
       toolCallCap: 1,
+      deadlineAt: Date.now() + FINAL_SUBMISSION_MS,
       onEvent: opts.emit,
     });
   }
 
   const report = submitted.report;
-  if (result.outcome === "cap_hit") return { status: "cap_hit", report };
-  if (!report) return { status: "error", report: null };
-  return { status: report.safeToMerge ? "passed" : "failed", report };
+  const incompleteReason =
+    result.outcome === "deadline_hit" ? "time_limit" : result.outcome === "cap_hit" ? "tool_cap" : null;
+  if (incompleteReason) return { status: "cap_hit", report, incompleteReason };
+  if (!report) return { status: "error", report: null, incompleteReason: null };
+  return { status: report.safeToMerge ? "passed" : "failed", report, incompleteReason: null };
 }

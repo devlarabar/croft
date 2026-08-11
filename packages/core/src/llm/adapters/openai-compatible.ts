@@ -104,7 +104,9 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
             }
           : {}),
       }),
+      signal: req.signal,
     }).catch((err: Error) => {
+      if (req.signal?.aborted) throw err;
       throw new LlmTransportError(`${this.id} request to ${url} failed: ${err.cause ?? err.message}`);
     });
     if (!res.ok || !res.body) {
