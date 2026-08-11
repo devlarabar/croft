@@ -1,0 +1,1 @@
+ALTER TABLE "config" ADD COLUMN "agent_fix_context" boolean DEFAULT false NOT NULL;

@@ -40,8 +40,8 @@ export interface ReviewFinding {
   title: string;
   pointsCost: number;
   detail: string;
-  // Denser brief for the agent pinged to fix the finding.
-  fixContext: string;
+  // Denser brief for the agent pinged to fix the finding (when agentFixContext is enabled).
+  fixContext?: string;
   file: string;
   startLine: number;
   endLine: number;
@@ -137,6 +137,8 @@ export const config = pgTable("config", {
   allowedUsers: jsonb("allowed_users").$type<string[]>().notNull().default([]),
   // GitHub username mentioned in review comments to validate/fix findings; null disables the ping.
   findingsPing: text("findings_ping"),
+  // Ask the reviewer for an agent-tuned fix brief per finding (extra tokens).
+  agentFixContext: boolean("agent_fix_context").notNull().default(false),
   previewLogins: jsonb("preview_logins")
     .$type<Record<string, PreviewLogin[]>>()
     .notNull()

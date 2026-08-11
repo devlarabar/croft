@@ -55,7 +55,7 @@ export function formatReview(
         `\`${finding.file}:${finding.startLine}-${finding.endLine}\` — **${finding.title}**`,
         "",
         "```",
-        finding.fixContext,
+        finding.fixContext ?? finding.detail,
         "```",
         "",
       ]),

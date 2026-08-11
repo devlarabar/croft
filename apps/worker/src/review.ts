@@ -17,7 +17,7 @@ const reviewSchema = z.object({
       title: z.string(),
       pointsCost: z.number(),
       detail: z.string(),
-      fixContext: z.string(),
+      fixContext: z.string().optional(),
       file: z.string(),
       startLine: z.number(),
       endLine: z.number(),
@@ -51,7 +51,7 @@ function formatReviewerComments(comments: ReviewerComments): string {
   return sections.join("\n\n");
 }
 
-const submitToolDef = {
+const submitToolDef = (agentFixContext: boolean) => ({
   name: "submit_review",
   description: "Submit the final review. Call exactly once.",
   inputSchema: {
@@ -79,11 +79,15 @@ const submitToolDef = {
               description:
                 "Max 25 words, extremely casual, cause and effect ('X causes Y. Try Z instead.'). No filler, no jargon.",
             },
-            fixContext: {
-              type: "string",
-              description:
-                "Brief for the agent that will fix this. Max 100 words, essential details only: the exact problem, where the relevant code lives, what a correct fix looks like, and any constraint or gotcha the fixer must respect. No pleasantries.",
-            },
+            ...(agentFixContext
+              ? {
+                  fixContext: {
+                    type: "string",
+                    description:
+                      "Brief for the agent that will fix this. Max 100 words, essential details only: the exact problem, where the relevant code lives, what a correct fix looks like, and any constraint or gotcha the fixer must respect. No pleasantries.",
+                  },
+                }
+              : {}),
             file: { type: "string", description: "Path exactly as it appears in the diff" },
             startLine: { type: "number", description: "New-file line number the finding starts on" },
             endLine: { type: "number" },
@@ -93,7 +97,15 @@ const submitToolDef = {
                 "Only when the finding agrees with another reviewer's general (non-inline) comment: that reviewer's name",
             },
           },
-          required: ["title", "pointsCost", "detail", "fixContext", "file", "startLine", "endLine"],
+          required: [
+            "title",
+            "pointsCost",
+            "detail",
+            ...(agentFixContext ? ["fixContext"] : []),
+            "file",
+            "startLine",
+            "endLine",
+          ],
         },
       },
       safeToMerge: { type: "boolean" },
@@ -110,7 +122,7 @@ const submitToolDef = {
     },
     required: ["score", "summary", "praise", "findings", "safeToMerge", "breakingChanges"],
   },
-};
+});
 
 export async function executeReview(opts: {
   repo: string;
@@ -126,13 +138,14 @@ export async function executeReview(opts: {
   cred: Credential;
   model: string;
   toolCallCap?: number;
+  agentFixContext: boolean;
   emit(type: string, payload: unknown): Promise<void>;
 }): Promise<{ status: RunStatus; report: ReviewReport | null }> {
   // A property, not a local: the tool assigns it in a closure, which
   // control-flow analysis can't see.
   const submitted: { report: ReviewReport | null } = { report: null };
   const submitTool: AgentTool = {
-    def: submitToolDef,
+    def: submitToolDef(opts.agentFixContext),
     schema: reviewSchema,
     async execute(args) {
       submitted.report = reviewSchema.parse(args);

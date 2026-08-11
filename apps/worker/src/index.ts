@@ -91,6 +91,7 @@ async function main() {
       cred,
       model: run.model,
       toolCallCap: cfg.toolCallCap,
+      agentFixContext: cfg.agentFixContext,
       emit,
     });
     if (!report) {

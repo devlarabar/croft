@@ -392,6 +392,7 @@ app.post("/settings", async (ctx) => {
     previewLogins,
     repoContext,
     findingsPing: String(form.get("findingsPing") ?? "").trim().replace(/^@/, "") || null,
+    agentFixContext: form.get("agentFixContext") === "on",
   });
   return ctx.redirect("/settings?notice=Saved");
 });
