@@ -35,6 +35,8 @@ When reviewing code, consider the following:
    package and verify the implementation is correct according to the official
    docs.
 
+6. Search the code for violations of our code standards.
+
 ## Output
 
 ### Scoring (internal only)
