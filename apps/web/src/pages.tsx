@@ -426,8 +426,12 @@ export function SettingsPage({ cfg, notice }: { cfg: Config; notice?: string }) 
           </label>
         </fieldset>
         <fieldset>
-          <legend>Findings ping (GitHub username mentioned in reviews to validate &amp; fix findings; blank disables)</legend>
-          <input name="findingsPing" placeholder="username" value={cfg.findingsPing ?? undefined} />
+          <legend>Findings ping (mentioned in reviews to validate &amp; fix findings)</legend>
+          <input name="findingsPing" placeholder="GitHub username (optional)" value={cfg.findingsPing ?? undefined} />
+          <label style="display:block">
+            <input type="checkbox" name="findingsPingAuthor" checked={cfg.findingsPingAuthor} /> Ping the PR
+            author instead
+          </label>
           <label style="display:block">
             <input type="checkbox" name="agentFixContext" checked={cfg.agentFixContext} /> Include an
             agent-tuned fix brief per finding (extra tokens per review)

@@ -25,7 +25,10 @@ export function formatReview(
   for (const finding of report.findings) {
     const lines = commentable.get(finding.file);
     const prefix = finding.agreedWith ? `Agreed with ${finding.agreedWith}: ` : "";
-    const body = `${prefix}**${finding.title}** - ${severity(finding.pointsCost)}\n\n${finding.detail}`;
+    const fixContext = finding.fixContext
+      ? `\n\n<details><summary>Additional context</summary>\n\n${finding.fixContext}\n\n</details>`
+      : "";
+    const body = `${prefix}**${finding.title}** - ${severity(finding.pointsCost)}\n\n${finding.detail}${fixContext}`;
     if (lines?.has(finding.endLine)) {
       comments.push({
         path: finding.file,
@@ -64,19 +67,7 @@ export function formatReview(
   if (findingsPing && report.findings.length) {
     lines.push(
       "",
-      `@${findingsPing} please validate each finding below: if it's real, push a fix to this branch; if not, reply to it (pinging @croft) explaining why.`,
-      "",
-      "<details><summary>Findings with context</summary>",
-      "",
-      ...report.findings.flatMap((finding) => [
-        `\`${finding.file}:${finding.startLine}-${finding.endLine}\` — **${finding.title}**`,
-        "",
-        "```",
-        finding.fixContext ?? finding.detail,
-        "```",
-        "",
-      ]),
-      "</details>",
+      `@${findingsPing} please validate each finding in this review: if it's real, push a fix to this branch; if not, reply to it (pinging @croft) explaining why.`,
     );
   }
   return { body: lines.join("\n"), comments };

@@ -135,8 +135,10 @@ export const config = pgTable("config", {
   // Repos where every PR opened (or marked ready) gets an automatic review run.
   autoReviewRepos: jsonb("auto_review_repos").$type<string[]>().notNull().default([]),
   allowedUsers: jsonb("allowed_users").$type<string[]>().notNull().default([]),
-  // GitHub username mentioned in review comments to validate/fix findings; null disables the ping.
+  // GitHub username mentioned in review comments to validate/fix findings; null disables the fixed-user ping.
   findingsPing: text("findings_ping"),
+  // Mention the PR author instead of the fixed user above.
+  findingsPingAuthor: boolean("findings_ping_author").notNull().default(false),
   // Ask the reviewer for an agent-tuned fix brief per finding (extra tokens).
   agentFixContext: boolean("agent_fix_context").notNull().default(false),
   previewLogins: jsonb("preview_logins")

@@ -107,7 +107,8 @@ async function main() {
       ? `${report.summary} Croft submitted early after reaching its ${incompleteReason === "time_limit" ? "review time" : "tool-call"} limit.`
       : report.summary;
     await createCheckRun(run.repo, pr.head.sha, conclusion, checkSummary);
-    const { body, comments } = formatReview(report, diff, cfg.findingsPing, incompleteReason);
+    const findingsPing = cfg.findingsPingAuthor ? pr.user?.login ?? null : cfg.findingsPing;
+    const { body, comments } = formatReview(report, diff, findingsPing, incompleteReason);
     await createPrReview(run.repo, run.prNumber, pr.head.sha, body, comments);
     // Replies are not idempotent either; ids the model invented are dropped.
     const knownInlineIds = new Set(reviewerComments.inline.map((comment) => comment.id));
