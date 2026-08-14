@@ -26,7 +26,7 @@ export function formatReview(
     const lines = commentable.get(finding.file);
     const prefix = finding.agreedWith ? `Agreed with ${finding.agreedWith}: ` : "";
     const fixContext = finding.fixContext
-      ? `\n\n<details><summary>Additional context</summary>\n\n${finding.fixContext}\n\n</details>`
+      ? `\n\n<details><summary>Additional context</summary>\n\n\`\`\`\n${finding.fixContext}\n\`\`\`\n\n</details>`
       : "";
     const body = `${prefix}**${finding.title}** - ${severity(finding.pointsCost)}\n\n${finding.detail}${fixContext}`;
     if (lines?.has(finding.endLine)) {
