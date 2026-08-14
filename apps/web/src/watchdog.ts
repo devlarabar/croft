@@ -1,5 +1,5 @@
 import { and, eq, inArray } from "drizzle-orm";
-import { createCheckRun, db, getPr, schema } from "@croft/core";
+import { createCheckRun, db, finishRunFlavour, getPr, schema } from "@croft/core";
 import { getJobRunState } from "./scaleway.js";
 
 const LIVE_JOB_STATES = ["queued", "scheduled", "running"];
@@ -21,6 +21,7 @@ export async function reapDeadRuns(): Promise<void> {
       .set({
         status: "error",
         error: `worker job ended (${state}) without reporting a result — likely killed by the job's time or memory limit`,
+        flavourText: run.flavourText ? finishRunFlavour(run.flavourText) : null,
         finishedAt: new Date(),
       })
       .where(and(eq(schema.runs.id, run.id), inArray(schema.runs.status, ["starting", "running"])))

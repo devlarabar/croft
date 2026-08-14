@@ -10,6 +10,7 @@ import {
   decrypt,
   encrypt,
   exchangeCode,
+  finishRunFlavour,
   generatePkce,
   getConfig,
   getProvider,
@@ -21,6 +22,7 @@ import {
   updateConfig,
 } from "@croft/core";
 import type { PreviewLogin } from "@croft/core";
+import { getLatestActivity } from "./activity.js";
 import { exportZip, purge } from "./export.js";
 import {
   ChatPage,
@@ -59,6 +61,7 @@ app.onError((err, ctx) => {
 });
 
 // Public endpoints; everything else requires the dashboard session.
+app.get("/api/v1/activity", getLatestActivity);
 app.post("/api/webhooks/github", handleWebhook);
 // Ad-hoc local runs — the route only exists on the auth-less dev stack.
 if (process.env.DEV_NO_AUTH === "1") app.post("/api/local-runs", handleLocalRun);
@@ -160,7 +163,11 @@ app.post("/runs/:id/cancel", async (ctx) => {
   }
   await db
     .update(schema.runs)
-    .set({ status: "canceled", finishedAt: new Date() })
+    .set({
+      status: "canceled",
+      flavourText: run.flavourText ? finishRunFlavour(run.flavourText) : null,
+      finishedAt: new Date(),
+    })
     .where(eq(schema.runs.id, run.id));
   return ctx.redirect("/runs");
 });

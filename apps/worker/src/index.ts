@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import {
   RunReport,
   RunStatus,
@@ -11,6 +12,7 @@ import {
   decrypt,
   eventWriter,
   extractTestPlan,
+  finishRunFlavour,
   getConfig,
   getPr,
   getPrDiff,
@@ -35,8 +37,22 @@ import { executeTestRun } from "./testrun.js";
 const RUN_ID = process.env.RUN_ID!;
 const PREVIEW_URL = process.env.PREVIEW_URL!;
 const WEB_URL = process.env.WEB_URL ?? "";
+const flavourSchema = z.object({
+  ongoing: z.string().trim().startsWith("Croft is ").max(200),
+  completed: z.string().trim().startsWith("Croft ").max(200),
+});
+let flavourText: string | null = null;
+let completedFlavourText: string | null = null;
 
 async function setStatus(status: RunStatus, patch: Partial<typeof schema.runs.$inferInsert> = {}) {
+  if (patch.flavourText) flavourText = patch.flavourText;
+  if (patch.finishedAt && completedFlavourText) {
+    flavourText = completedFlavourText;
+    patch.flavourText = completedFlavourText;
+  } else if (patch.finishedAt && flavourText) {
+    flavourText = finishRunFlavour(flavourText);
+    patch.flavourText = flavourText;
+  }
   await db.update(schema.runs).set({ status, ...patch }).where(eq(schema.runs.id, RUN_ID));
 }
 
@@ -45,6 +61,7 @@ async function main() {
   console.log("TOKEN_ENC_KEY fp", createHash("sha256").update(process.env.TOKEN_ENC_KEY!).digest("hex").slice(0, 8));
   const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, RUN_ID));
   if (!run) throw new Error(`run ${RUN_ID} not found`);
+  flavourText = run.flavourText;
   await setStatus("running", { startedAt: new Date() });
   const emit = eventWriter(RUN_ID);
 
@@ -58,6 +75,19 @@ async function main() {
     if (usage) await emit("usage", usage);
     return text.trim();
   };
+  const author = pr.user?.login;
+  const authorContext = author ? `Author: @${author}` : "The PR author is unavailable.";
+  const generatedFlavour = flavourSchema.parse(
+    JSON.parse(
+      await ask(
+        "Write Croft's playful activity status. Return only JSON with ongoing and completed strings. Each must be one punchy sentence under 20 words and specific to the PR. Ongoing must begin 'Croft is'; completed must begin 'Croft' and use natural past tense; otherwise they differ only in tense. Do not use markdown or invent details beyond the title.",
+        `Mode: ${run.mode}\nPR #${run.prNumber}\n${authorContext}\nTitle: ${pr.title}`,
+      ),
+    ),
+  );
+  flavourText = generatedFlavour.ongoing;
+  completedFlavourText = generatedFlavour.completed;
+  await setStatus("running", { flavourText });
 
   if (run.mode === "review") {
     const diff = await getPrDiff(run.repo, run.prNumber);

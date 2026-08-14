@@ -78,6 +78,7 @@ export const runs = pgTable("runs", {
   credentialId: uuid("credential_id").notNull(),
   report: jsonb("report").$type<RunReport | ReviewReport>(),
   error: text("error"),
+  flavourText: text("flavour_text"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   startedAt: timestamp("started_at", { withTimezone: true }),
   finishedAt: timestamp("finished_at", { withTimezone: true }),

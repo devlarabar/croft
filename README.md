@@ -13,6 +13,7 @@ Monorepo: `packages/core` (schema, LLM layer, GitHub/S3 helpers), `apps/web`
 | Var | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Serverless SQL Postgres connection string |
+| `CROFT_API_KEY` | API key accepted by `GET /api/v1/activity` via the `X-API-Key` header |
 | `S3_BUCKET` | artifact bucket name (default `croft-artifacts`) |
 | `S3_ACCESS_KEY` / `S3_SECRET_KEY` | Object Storage credentials |
 | `TOKEN_ENC_KEY` | 32 bytes hex — AES-256-GCM key for stored secrets, also signs session cookies |
@@ -92,6 +93,10 @@ cap are croft's configured defaults; no run row is written, and the login
 credentials only exist in the spawned worker's env. Note the `http_request`
 tool is scoped to the target's host — for `localhost` URLs that means
 same-host only.
+
+## Activity API
+
+`GET /api/v1/activity` returns Croft's latest run as `{"activity":"Croft is reviewing …"}`. Send the key configured in `CROFT_API_KEY` as the `X-API-Key` header.
 
 ## Migrations
 
