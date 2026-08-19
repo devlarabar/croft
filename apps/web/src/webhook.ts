@@ -152,7 +152,12 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
         repo,
         prNumber,
         question: command,
-        comment: { id: payload.comment.id, kind: commentKind },
+        comment: {
+          id: payload.comment.id,
+          kind: commentKind,
+          author: commenter,
+          sourceUrl: payload.comment.html_url,
+        },
       }),
     );
   }
