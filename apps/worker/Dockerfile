@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
   && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/packages/core/dist packages/core/dist
 COPY --from=build /app/apps/worker/dist apps/worker/dist
+COPY --from=build /app/apps/worker/fixtures apps/worker/fixtures
 # gVisor makes /tmp memory-backed; artifacts (video) go here instead.
 RUN mkdir /artifacts
 ENV NODE_ENV=production ARTIFACTS_DIR=/artifacts

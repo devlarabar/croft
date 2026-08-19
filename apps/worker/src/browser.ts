@@ -1,4 +1,6 @@
 import { readFile, readdir, unlink } from "node:fs/promises";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { z } from "zod";
 import { uploadArtifact } from "@croft/core/s3";
@@ -14,6 +16,12 @@ export type SaveArtifact = (
   body: Buffer,
   contentType: "image/png" | "video/webm",
 ) => Promise<string>;
+
+const FIXTURES_DIR = fileURLToPath(new URL("../fixtures", import.meta.url));
+const uploadArgs = z.object({
+  selector: z.string(),
+  filename: z.string().regex(/^[^./\\][^/\\]*$/),
+});
 
 export async function openBrowserSession(runId: string, save: SaveArtifact = uploadArtifact) {
   // gVisor: /tmp is memory-backed and counts against the job's 2 GB — record to
@@ -33,6 +41,7 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
   });
   const page = await context.newPage();
   const screenshots: Screenshot[] = [];
+  const fixtureNames = (await readdir(FIXTURES_DIR)).filter((name) => !name.startsWith("."));
 
   const tools: AgentTool[] = [
     {
@@ -111,6 +120,26 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
         await page.click(selector, { timeout: 10_000 });
         await page.keyboard.type(text, { delay: 25 });
         return [{ type: "text", text: `Typed into ${selector} via keystrokes` }];
+      },
+    },
+    {
+      def: {
+        name: "browser_upload",
+        description: `Set a file input to a bundled fixture. Available: ${fixtureNames.length ? fixtureNames.join(", ") : "none"}.`,
+        inputSchema: {
+          type: "object",
+          properties: {
+            selector: { type: "string", description: "CSS selector for the file input" },
+            filename: { type: "string", description: "Fixture filename" },
+          },
+          required: ["selector", "filename"],
+        },
+      },
+      schema: uploadArgs,
+      async execute(args) {
+        const { selector, filename } = uploadArgs.parse(args);
+        await page.locator(selector).setInputFiles(join(FIXTURES_DIR, filename), { timeout: 10_000 });
+        return [{ type: "text", text: `Uploaded ${filename} through ${selector}` }];
       },
     },
     {
