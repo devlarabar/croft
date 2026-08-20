@@ -5,6 +5,12 @@ import { LEARNING_CAP, LEARNING_MAX_CHARS } from "@croft/core";
 type Run = typeof schema.runs.$inferSelect;
 type CredentialRow = typeof schema.credentials.$inferSelect;
 
+interface RunsPageProps {
+  runs: Run[];
+  page: number;
+  hasNext: boolean;
+}
+
 // DD/MM/YYYY HH:MM
 function fmtDate(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -52,7 +58,7 @@ function StatusCell({ status }: { status: RunStatus }) {
   return <span class={`status-${status}`}>{status}</span>;
 }
 
-export function RunsPage({ runs }: { runs: Run[] }) {
+export function RunsPage({ runs, page, hasNext }: RunsPageProps) {
   return (
     <Layout title="Runs">
       <div class="page-head">
@@ -61,9 +67,6 @@ export function RunsPage({ runs }: { runs: Run[] }) {
           New run
         </a>
       </div>
-      <p class="sub">
-        {runs.length} runs · {new Set(runs.map((run) => run.repo)).size} repos
-      </p>
       <table class="runs-table">
         <tr>
           <th>Pull request</th>
@@ -116,6 +119,13 @@ export function RunsPage({ runs }: { runs: Run[] }) {
           </tr>
         ))}
       </table>
+      <p>
+        {page > 1 ? <a href={`/runs?page=${page - 1}`}>← Previous</a> : null}
+        {page > 1 ? " · " : null}
+        Page {page}
+        {hasNext ? " · " : null}
+        {hasNext ? <a href={`/runs?page=${page + 1}`}>Next →</a> : null}
+      </p>
     </Layout>
   );
 }

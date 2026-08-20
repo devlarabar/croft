@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { serve } from "@hono/node-server";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { z } from "zod";
 import {
   addLearning,
   authorizeUrl,
@@ -53,6 +54,7 @@ import { handleLocalRun } from "./localrun.js";
 import { handleWebhook } from "./webhook.js";
 
 const app = new Hono();
+const RUNS_PER_PAGE = 25;
 
 // Single-user dashboard: show the real error instead of a bare 500.
 app.onError((err, ctx) => {
@@ -90,8 +92,17 @@ app.use("*", requireAuth);
 app.get("/", (ctx) => ctx.redirect("/runs"));
 
 app.get("/runs", async (ctx) => {
-  const runs = await db.select().from(schema.runs).orderBy(desc(schema.runs.createdAt)).limit(100);
-  return ctx.html(<RunsPage runs={runs} />);
+  const page = z.coerce.number().int().positive().safeParse(ctx.req.query("page") ?? 1);
+  if (!page.success) return ctx.text("invalid page", 400);
+  const runs = await db
+    .select()
+    .from(schema.runs)
+    .orderBy(desc(schema.runs.createdAt))
+    .limit(RUNS_PER_PAGE + 1)
+    .offset((page.data - 1) * RUNS_PER_PAGE);
+  return ctx.html(
+    <RunsPage runs={runs.slice(0, RUNS_PER_PAGE)} page={page.data} hasNext={runs.length > RUNS_PER_PAGE} />,
+  );
 });
 
 app.get("/runs/:id", async (ctx) => {
