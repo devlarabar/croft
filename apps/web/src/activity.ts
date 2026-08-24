@@ -12,7 +12,7 @@ export async function getLatestActivity(ctx: Context): Promise<Response> {
   if (!timingSafeEqual(expected, supplied)) return ctx.json({ error: "unauthorized" }, 401);
 
   const [run] = await db
-    .select({ activity: schema.runs.flavourText })
+    .select()
     .from(schema.runs)
     .where(isNotNull(schema.runs.flavourText))
     .orderBy(desc(schema.runs.createdAt))

@@ -13,17 +13,9 @@ export const openApiSpec = {
         security: [{ ApiKeyAuth: [] }],
         responses: {
           "200": {
-            description: "The latest run activity",
+            description: "The latest run with activity",
             content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  required: ["activity"],
-                  properties: {
-                    activity: { type: "string", example: "Croft is reviewing …" },
-                  },
-                },
-              },
+              "application/json": { schema: { $ref: "#/components/schemas/Run" } },
             },
           },
           "401": {
@@ -57,6 +49,50 @@ export const openApiSpec = {
       },
     },
     schemas: {
+      Run: {
+        type: "object",
+        required: [
+          "id",
+          "repo",
+          "prNumber",
+          "mode",
+          "freshPlan",
+          "status",
+          "previewUrl",
+          "jobRunId",
+          "providerId",
+          "model",
+          "credentialId",
+          "report",
+          "error",
+          "flavourText",
+          "createdAt",
+          "startedAt",
+          "finishedAt",
+        ],
+        properties: {
+          id: { type: "string", format: "uuid" },
+          repo: { type: "string", example: "owner/repo" },
+          prNumber: { type: "integer" },
+          mode: { type: "string", enum: ["test", "review"] },
+          freshPlan: { type: "boolean" },
+          status: {
+            type: "string",
+            enum: ["queued", "starting", "running", "passed", "failed", "partial", "cap_hit", "canceled", "error"],
+          },
+          previewUrl: { type: ["string", "null"], format: "uri" },
+          jobRunId: { type: ["string", "null"] },
+          providerId: { type: "string" },
+          model: { type: "string" },
+          credentialId: { type: "string", format: "uuid" },
+          report: { type: ["object", "null"] },
+          error: { type: ["string", "null"] },
+          flavourText: { type: ["string", "null"], example: "I'm inspecting this PR, since apparently someone has to." },
+          createdAt: { type: "string", format: "date-time" },
+          startedAt: { type: ["string", "null"], format: "date-time" },
+          finishedAt: { type: ["string", "null"], format: "date-time" },
+        },
+      },
       Error: {
         type: "object",
         required: ["error"],

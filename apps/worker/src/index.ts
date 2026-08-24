@@ -38,8 +38,8 @@ const RUN_ID = process.env.RUN_ID!;
 const PREVIEW_URL = process.env.PREVIEW_URL!;
 const WEB_URL = process.env.WEB_URL ?? "";
 const flavourSchema = z.object({
-  ongoing: z.string().trim().startsWith("Croft is ").max(200),
-  completed: z.string().trim().startsWith("Croft ").max(200),
+  ongoing: z.string().trim().startsWith("I'm ").max(200),
+  completed: z.string().trim().startsWith("I ").max(200),
 });
 let flavourText: string | null = null;
 let completedFlavourText: string | null = null;
@@ -80,7 +80,7 @@ async function main() {
   const generatedFlavour = flavourSchema.parse(
     JSON.parse(
       await ask(
-        "Write Croft's playful activity status. Return only JSON with ongoing and completed strings. Each must be one punchy sentence under 20 words and specific to the PR. Ongoing must begin 'Croft is'; completed must begin 'Croft' and use natural past tense; otherwise they differ only in tense. Do not use markdown or invent details beyond the title.",
+        "Write Croft's activity status in his first-person voice: sly, polished, and lightly sassy, with subtle shade but never cruelty. Return only JSON with ongoing and completed strings. Each must be one punchy sentence under 20 words and specific to the PR. Ongoing must begin `I'm`; completed must begin `I` and use natural past tense; otherwise they differ only in tense. Do not use markdown or invent details beyond the title.",
         `Mode: ${run.mode}\nPR #${run.prNumber}\n${authorContext}\nTitle: ${pr.title}`,
       ),
     ),
