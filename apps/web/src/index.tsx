@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { serve } from "@hono/node-server";
+import { swaggerUI } from "@hono/swagger-ui";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
@@ -51,6 +52,7 @@ import {
 } from "./session.js";
 import { stopJob } from "./scaleway.js";
 import { handleLocalRun } from "./localrun.js";
+import { openApiSpec } from "./openapi.js";
 import { handleWebhook } from "./webhook.js";
 
 const app = new Hono();
@@ -64,6 +66,11 @@ app.onError((err, ctx) => {
 
 // Public endpoints; everything else requires the dashboard session.
 app.get("/api/v1/activity", getLatestActivity);
+app.get("/api/openapi.json", (ctx) => ctx.json(openApiSpec));
+app.get(
+  "/api/docs",
+  swaggerUI({ url: "/api/openapi.json", title: "Croft API docs", version: "5.32.14" }),
+);
 app.post("/api/webhooks/github", handleWebhook);
 // Ad-hoc local runs — the route only exists on the auth-less dev stack.
 if (process.env.DEV_NO_AUTH === "1") app.post("/api/local-runs", handleLocalRun);

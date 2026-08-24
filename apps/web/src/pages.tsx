@@ -25,6 +25,7 @@ const NAV = [
   ["/learnings", "Learnings"],
   ["/export", "Export & clean up"],
   ["/settings", "Settings"],
+  ["/api/docs", "API docs"],
 ];
 
 export function Layout(props: { title: string; children: Child }) {

@@ -96,7 +96,7 @@ same-host only.
 
 ## Activity API
 
-`GET /api/v1/activity` returns Croft's latest run as `{"activity":"Croft is reviewing …"}`. Send the key configured in `CROFT_API_KEY` as the `X-API-Key` header.
+`GET /api/v1/activity` returns Croft's latest run as `{"activity":"Croft is reviewing …"}`. Send the key configured in `CROFT_API_KEY` as the `X-API-Key` header. Interactive docs are available at `/api/docs`, with the OpenAPI spec at `/api/openapi.json`.
 
 ## Migrations
 

@@ -16,6 +16,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.14.0
         version: 1.19.17(hono@4.12.32)
+      '@hono/swagger-ui':
+        specifier: ^0.6.1
+        version: 0.6.1(hono@4.12.32)
       '@octokit/webhooks':
         specifier: ^13.7.4
         version: 13.9.1
@@ -699,6 +702,11 @@ packages:
     engines: {node: '>=18.14.1'}
     peerDependencies:
       hono: ^4
+
+  '@hono/swagger-ui@0.6.1':
+    resolution: {integrity: sha512-sJTvldu1GPeEPfyeLG7gRj+W4vEuD+JDi+JjJ3TJs/DvMUtBLs0KJO5yokGegWWdy5qrbdnQGekbhgNRmPmYKQ==}
+    peerDependencies:
+      hono: '>=4.0.0'
 
   '@isaacs/cliui@8.0.2':
     resolution: {integrity: sha512-O8jcjabXaleOG9DQ0+ARXWZBTfnP4WNAqzuiJK7ll44AmxGKv/J2M4TPjxjY3znBCfvBXFzucm1twdyFybFqEA==}
@@ -1906,6 +1914,10 @@ snapshots:
     optional: true
 
   '@hono/node-server@1.19.17(hono@4.12.32)':
+    dependencies:
+      hono: 4.12.32
+
+  '@hono/swagger-ui@0.6.1(hono@4.12.32)':
     dependencies:
       hono: 4.12.32
 
