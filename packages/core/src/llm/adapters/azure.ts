@@ -9,10 +9,10 @@ interface AzureCredentialBlob {
 const API_VERSION = "2025-01-01-preview";
 
 // Models are deployment names on the resource the credential points at —
-// currently the company Sweden-Central resource, which deploys these models.
+// currently the company Sweden-Central resource, which deploys these two.
 class AzureAdapter extends OpenAiCompatibleAdapter {
   constructor() {
-    super("azure", ["gpt-5-6-sol", "gpt-5-6-terra", "gpt-5-6-luna", "gpt-5-5-se", "gpt-5-4-se"], "");
+    super("azure", ["gpt-5-5-se", "gpt-5-4-se"], "");
   }
 
   protected override resolve(token: string) {
