@@ -35,6 +35,7 @@ async function octokitFor(repo: string) {
 }
 
 const retry3 = { attempts: 3 };
+const parseDiff = (data: unknown) => stripGeneratedFiles(z.string().parse(data));
 
 export async function getPr(repo: string, prNumber: number) {
   const kit = await octokitFor(repo);
@@ -46,9 +47,27 @@ export async function getPr(repo: string, prNumber: number) {
   return data;
 }
 
-export async function getPrDiff(repo: string, prNumber: number): Promise<string> {
+export interface DiffRange {
+  baseSha: string;
+  headSha: string;
+}
+
+export async function getPrDiff(repo: string, prNumber: number, range?: DiffRange): Promise<string> {
   const kit = await octokitFor(repo);
   const { owner, name } = splitRepo(repo);
+  if (range) {
+    const { data } = await withRetry(
+      () =>
+        kit.request("GET /repos/{owner}/{repo}/compare/{basehead}", {
+          owner,
+          repo: name,
+          basehead: `${range.baseSha}...${range.headSha}`,
+          mediaType: { format: "diff" },
+        }),
+      retry3,
+    );
+    return parseDiff(data);
+  }
   const { data } = await withRetry(
     () =>
       kit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}", {
@@ -61,7 +80,7 @@ export async function getPrDiff(repo: string, prNumber: number): Promise<string>
   );
   // The diff media type returns text, but octokit types the route by its
   // JSON schema.
-  return stripGeneratedFiles(z.string().parse(data));
+  return parseDiff(data);
 }
 
 export async function listPrComments(repo: string, prNumber: number) {
@@ -87,6 +106,22 @@ export async function listPrReviewComments(repo: string, prNumber: number) {
   const { data } = await withRetry(
     () =>
       kit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/comments", {
+        owner,
+        repo: name,
+        pull_number: prNumber,
+        per_page: 100,
+      }),
+    retry3,
+  );
+  return data;
+}
+
+export async function listPrReviews(repo: string, prNumber: number) {
+  const kit = await octokitFor(repo);
+  const { owner, name } = splitRepo(repo);
+  const { data } = await withRetry(
+    () =>
+      kit.request("GET /repos/{owner}/{repo}/pulls/{pull_number}/reviews", {
         owner,
         repo: name,
         pull_number: prNumber,
@@ -205,13 +240,13 @@ export interface ReviewComment {
 }
 
 // Review creation is not idempotent: no retry — submit it last, once.
-// `event: COMMENT` rather than REQUEST_CHANGES: croft advises, humans block.
 export async function createPrReview(
   repo: string,
   prNumber: number,
   headSha: string,
   body: string,
   comments: ReviewComment[],
+  approved: boolean,
 ) {
   const kit = await octokitFor(repo);
   const { owner, name } = splitRepo(repo);
@@ -220,7 +255,7 @@ export async function createPrReview(
     repo: name,
     pull_number: prNumber,
     commit_id: headSha,
-    event: "COMMENT",
+    event: approved ? "APPROVE" : "COMMENT",
     body,
     comments: comments.map((comment) => ({
       path: comment.path,

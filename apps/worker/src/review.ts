@@ -137,6 +137,7 @@ export async function executeReview(opts: {
   checkoutDir: string;
   repoContext: string | null;
   reviewerComments: ReviewerComments;
+  reviewNumber: number;
   learnings: string[];
   adapter: ProviderAdapter;
   cred: Credential;
@@ -166,6 +167,7 @@ export async function executeReview(opts: {
     codeStandards: CODE_STANDARDS,
     repo: opts.repo,
     repoContext: opts.repoContext,
+    reviewNumber: opts.reviewNumber,
     learnings: opts.learnings,
   });
   const initial: ChatMessage[] = [

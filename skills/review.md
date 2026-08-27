@@ -37,6 +37,21 @@ When reviewing code, consider the following:
 
 6. Search the code for violations of our code standards.
 
+## Repeat reviews
+
+The prompt states how many times you have reviewed this PR. On repeat reviews,
+the diff contains only commits added since your previous review. Review only
+those changes; use unchanged surrounding code as context, not as a source of new
+findings. Raise the bar for a finding on every additional review while
+continuing to enforce every documented code standard:
+
+- On review 2, focus on consequential issues and clear code-standard violations.
+  Do not introduce minor polish or preferences that did not matter on review 1.
+- On review 3 and later, report only issues backed by concrete evidence and a
+  very good reason: a bug, vulnerability, breaking change, material reliability
+  or performance risk, or an unambiguous documented code-standard violation.
+- Never repeat a resolved finding or invent a new nit to justify another review.
+
 ## Output
 
 ### Scoring (internal only)

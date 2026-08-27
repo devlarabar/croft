@@ -21,6 +21,7 @@ import {
   listLearnings,
   listPrComments,
   listPrReviewComments,
+  listPrReviews,
   loadCredential,
   postPrComment,
   redact,
@@ -90,10 +91,23 @@ async function main() {
   await setStatus("running", { flavourText });
 
   if (run.mode === "review") {
-    const diff = await getPrDiff(run.repo, run.prNumber);
-    const checkoutDir = await checkoutPr(run.repo, pr.head.sha, await installationToken(run.repo));
-    const [self, issueComments, inlineComments] = await Promise.all([
+    const [self, reviews, token] = await Promise.all([
       botLogin(),
+      listPrReviews(run.repo, run.prNumber),
+      installationToken(run.repo),
+    ]);
+    const ownReviews = reviews.filter((review) => review.user?.login === self);
+    const previousHeadSha = ownReviews.at(-1)?.commit_id;
+    const reviewDiffRequest = getPrDiff(
+      run.repo,
+      run.prNumber,
+      previousHeadSha ? { baseSha: previousHeadSha, headSha: pr.head.sha } : undefined,
+    );
+    const fullDiffRequest = previousHeadSha ? getPrDiff(run.repo, run.prNumber) : reviewDiffRequest;
+    const [reviewDiff, commentableDiff, checkoutDir, issueComments, inlineComments] = await Promise.all([
+      reviewDiffRequest,
+      fullDiffRequest,
+      checkoutPr(run.repo, pr.head.sha, token),
       listPrComments(run.repo, run.prNumber),
       listPrReviewComments(run.repo, run.prNumber),
     ]);
@@ -112,10 +126,11 @@ async function main() {
       prNumber: run.prNumber,
       prTitle: pr.title,
       prBody: pr.body,
-      diff,
+      diff: reviewDiff,
       checkoutDir,
       repoContext: cfg.repoContext[run.repo] ?? null,
       reviewerComments,
+      reviewNumber: ownReviews.length + 1,
       learnings: (await listLearnings(run.repo)).map((learning) => learning.text),
       adapter,
       cred,
@@ -138,8 +153,8 @@ async function main() {
       : report.summary;
     await createCheckRun(run.repo, pr.head.sha, conclusion, checkSummary);
     const findingsPing = cfg.findingsPingAuthor ? pr.user?.login ?? null : cfg.findingsPing;
-    const { body, comments } = formatReview(report, diff, findingsPing, incompleteReason);
-    await createPrReview(run.repo, run.prNumber, pr.head.sha, body, comments);
+    const { body, comments } = formatReview(report, commentableDiff, findingsPing, incompleteReason);
+    await createPrReview(run.repo, run.prNumber, pr.head.sha, body, comments, report.safeToMerge && !incompleteReason);
     // Replies are not idempotent either; ids the model invented are dropped.
     const knownInlineIds = new Set(reviewerComments.inline.map((comment) => comment.id));
     for (const commentId of report.inlineAgreements ?? []) {

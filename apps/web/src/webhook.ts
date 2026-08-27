@@ -2,6 +2,7 @@ import { Webhooks } from "@octokit/webhooks";
 import type { Context } from "hono";
 import {
   addEyesReaction,
+  botLogin,
   db,
   getConfig,
   getPr,
@@ -23,21 +24,28 @@ function webhooks(): Webhooks {
 
 const TRUSTED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
 
-// Auto-review: a PR opened non-draft, or promoted out of draft, starts a
-// review run on repos opted in via config.
+// Auto-review: a PR opened non-draft, promoted out of draft, or explicitly
+// assigned back to Croft starts a review run.
 async function handlePullRequest(ctx: Context, body: string): Promise<Response> {
   const payload = JSON.parse(body) as {
     action: string;
     pull_request: { number: number; draft: boolean; head: { repo: { full_name: string } | null } };
+    requested_reviewer?: { login: string };
     repository: { full_name: string };
   };
-  if (payload.action !== "opened" && payload.action !== "ready_for_review")
+  const requested = payload.action === "review_requested";
+  if (!requested && payload.action !== "opened" && payload.action !== "ready_for_review")
     return ctx.text("ignored", 200);
   if (payload.pull_request.draft) return ctx.text("draft PR", 200);
 
   const cfg = await getConfig();
   const repo = payload.repository.full_name;
-  if (!cfg.autoReviewRepos.includes(repo)) return ctx.text("repo not opted in", 200);
+  if (requested) {
+    if (payload.requested_reviewer?.login !== (await botLogin())) return ctx.text("another reviewer", 200);
+    if (!cfg.repos.includes(repo)) return ctx.text("repo not allow-listed", 200);
+  } else if (!cfg.autoReviewRepos.includes(repo)) {
+    return ctx.text("repo not opted in", 200);
+  }
   if (!cfg.webhooksEnabled) return ctx.text("webhooks disabled", 200);
   // Never on PRs from forks: the agent reads attacker-controllable PR text
   // while holding GitHub write tools.

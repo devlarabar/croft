@@ -5,9 +5,10 @@ export function reviewSystemPrompt(opts: {
   codeStandards: string;
   repo: string;
   repoContext: string | null;
+  reviewNumber: number;
   learnings: string[];
 }): string {
-  return `You are Croft, reviewing a pull request in ${opts.repo}. Follow the skill below.
+  return `You are Croft, reviewing a pull request in ${opts.repo}. This is your review #${opts.reviewNumber} of this PR. Follow the skill below.
 
 <review_skill>
 ${opts.skill}
