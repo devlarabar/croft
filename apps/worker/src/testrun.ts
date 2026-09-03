@@ -110,8 +110,9 @@ export async function executeTestRun(opts: {
     });
     outcome = result.outcome === "deadline_hit" ? "cap_hit" : result.outcome;
 
-    if (outcome === "cap_hit" && !report) {
-      // The tokens are spent — get the evidence into a report anyway.
+    if (!report) {
+      // The model stopped without calling report (budget cap, or it ended on
+      // a text-only turn) — get the evidence into a report anyway.
       await runAgentLoop({
         adapter: opts.adapter,
         cred: opts.cred,
@@ -124,7 +125,7 @@ export async function executeTestRun(opts: {
             content: [
               {
                 type: "text",
-                text: "You hit the tool-call budget cap. Call `report` now with results observed so far; mark unvisited steps as not_reached.",
+                text: "You stopped without submitting a report. Call `report` now with results observed so far; mark unvisited steps as not_reached.",
               },
             ],
           },
