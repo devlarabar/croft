@@ -57,8 +57,9 @@ support agent reading a script.
   "the language picker" not `LanguagePicker`. "the + button at the
   bottom of the note" not `AddBlockButton`.
 - Keep each step under ~15 words when possible.
-- Include the deployment URL on the first navigation step if the change
-  is web-visible.
+- Refer to pages by path only ("go to /settings/languages"). Never
+  include a URL in any step; the tester already knows which deployment
+  to open.
 - Use "Verify ..." for assertions. Say what the tester should see.
 - Cover the golden path first, then 1-2 important edge cases.
 
