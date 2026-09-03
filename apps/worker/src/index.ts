@@ -5,6 +5,7 @@ import {
   RunReport,
   RunStatus,
   botLogin,
+  commentableLines,
   complete,
   createCheckRun,
   createPrReview,
@@ -26,6 +27,7 @@ import {
   postPrComment,
   redact,
   replyToReviewComment,
+  restrictDiffToFiles,
   PLAN_TRIAGE_SKILL,
   schema,
   TEST_PLAN_SKILL,
@@ -104,13 +106,18 @@ async function main() {
       previousHeadSha ? { baseSha: previousHeadSha, headSha: pr.head.sha } : undefined,
     );
     const fullDiffRequest = previousHeadSha ? getPrDiff(run.repo, run.prNumber) : reviewDiffRequest;
-    const [reviewDiff, commentableDiff, checkoutDir, issueComments, inlineComments] = await Promise.all([
+    const [rangeDiff, commentableDiff, checkoutDir, issueComments, inlineComments] = await Promise.all([
       reviewDiffRequest,
       fullDiffRequest,
       checkoutPr(run.repo, pr.head.sha, token),
       listPrComments(run.repo, run.prNumber),
       listPrReviewComments(run.repo, run.prNumber),
     ]);
+    // After a rebase, previousHead...head includes mainline commits from other
+    // PRs; only review files this PR actually changes.
+    const reviewDiff = previousHeadSha
+      ? restrictDiffToFiles(rangeDiff, new Set(commentableLines(commentableDiff).keys()))
+      : rangeDiff;
     const reviewerComments = {
       inline: inlineComments.flatMap((comment) =>
         comment.user && comment.user.login !== self
