@@ -105,7 +105,9 @@ If a step assumes state the test account doesn't have (e.g. an expired subscript
 ${opts.plan}
 </test_plan>
 
-When you have executed the plan (or cannot proceed further), call the \`report\` tool exactly once with a result for every step, then stop.
+Attempt every step in order. Stop early only when something concrete blocks all remaining steps (the deployment is down, login is impossible, a failed step is a prerequisite for everything after it). Then call the \`report\` tool exactly once with a result for every step, then stop. A step's failure never excuses skipping later steps that don't depend on it.
+
+Every \`not_reached\` step needs a note naming the specific blocker ("blocked by step 4: archive button never appeared"), never a bare "not visited".
 
 Reporting style:
 - \`fail\` means the app misbehaved: you performed the step and the observed result contradicts what the plan expects. If you cannot perform a step at all — missing tool capability, environment limitation, or a blocked prerequisite — mark it \`not_reached\` and note why; that is not a failure of the app.
