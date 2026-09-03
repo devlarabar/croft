@@ -17,13 +17,14 @@ of the change with nothing for the reviewer to do.
 Reply with exactly one word: USABLE or UNUSABLE.
 `;
 
-// Finds a `## Test plan` header (case-insensitive) in the PR body. The plan is
-// everything under it until the next header of the same or higher level
-// (## or #) or end of body; ###+ inside belongs to the plan.
+// Finds a `## Test plan` header (case-insensitive, tolerating decoration like
+// `## 🧪 Test Plan:`) in the PR body. The plan is everything under it until
+// the next header of the same or higher level (## or #) or end of body;
+// ###+ inside belongs to the plan.
 export function extractTestPlan(body: string | null | undefined): string | null {
   if (!body) return null;
   const lines = body.split(/\r?\n/);
-  const start = lines.findIndex((line) => /^(##?)\s+test plan\s*$/i.test(line.trim()));
+  const start = lines.findIndex((line) => /^##?\s+[^\w]*test plan[^\w]*$/i.test(line.trim()));
   if (start === -1) return null;
   const level = lines[start]!.trim().match(/^#+/)![0].length;
   const section: string[] = [];
