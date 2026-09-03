@@ -93,11 +93,13 @@ function toAiPrompt(system: string | undefined, messages: ChatMessage[]): Langua
             toolName,
             output: {
               type: "content",
-              value: message.content.map((part) =>
-                part.type === "text"
-                  ? { type: "text", text: part.text }
-                  : { type: "file-data", data: part.dataBase64, mediaType: part.mediaType },
-              ),
+              value: message.content.map((part) => {
+                if (part.type === "text") return { type: "text" as const, text: part.text };
+                // "file-data" becomes input_file with filename 'data', which
+                // Bedrock mantle rejects; images must go as input_image.
+                const type = part.mediaType.startsWith("image/") ? ("image-data" as const) : ("file-data" as const);
+                return { type, data: part.dataBase64, mediaType: part.mediaType };
+              }),
             },
           },
         ],
