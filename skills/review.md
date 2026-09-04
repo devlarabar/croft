@@ -73,7 +73,10 @@ exceptionally short and to the point (max 25 words each); no filler or technical
 jargon; extremely casual tone; phrased in terms of cause and effect (i.e. "X
 causes Y. Try Z instead.").>
 
-<Is it safe to merge into main, or are there any remaining breaking changes?>
+<Is it safe to merge into main, or are there any remaining breaking changes?
+Mark a PR unsafe to merge only for breaking changes or critical/high findings —
+bugs, security issues, data loss. Medium and low findings (style, polish,
+conventions) never make a PR unsafe on their own.>
 
 ### Example 1
 

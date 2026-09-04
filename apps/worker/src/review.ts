@@ -112,7 +112,11 @@ const submitToolDef = (agentFixContext: boolean) => ({
           ],
         },
       },
-      safeToMerge: { type: "boolean" },
+      safeToMerge: {
+        type: "boolean",
+        description:
+          "False only for breaking changes or critical/high findings (bugs, security, data loss). Medium/low findings like style nits never block a merge.",
+      },
       breakingChanges: {
         type: "string",
         description: "The breaking changes, or 'No breaking changes.'",
