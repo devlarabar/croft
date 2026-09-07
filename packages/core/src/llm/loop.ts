@@ -69,16 +69,20 @@ export interface AgentLoopOptions {
 
 // While the response has tool calls: execute, append results, re-send —
 // with a hard cap on tool calls per run (the real cost bound).
-export async function runAgentLoop(
-  opts: AgentLoopOptions,
-): Promise<{ outcome: "done" | "cap_hit" | "deadline_hit"; messages: ChatMessage[] }> {
+interface AgentLoopResult {
+  outcome: "done" | "cap_hit" | "deadline_hit";
+  messages: ChatMessage[];
+  toolCalls: number;
+}
+
+export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopResult> {
   const cap = opts.toolCallCap ?? 50;
   const messages = [...opts.messages];
   const byName = new Map(opts.tools.map((tool) => [tool.def.name, tool]));
   let toolCalls = 0;
 
   while (true) {
-    if (opts.deadlineAt && Date.now() >= opts.deadlineAt) return { outcome: "deadline_hit", messages };
+    if (opts.deadlineAt && Date.now() >= opts.deadlineAt) return { outcome: "deadline_hit", messages, toolCalls };
     const signal = opts.deadlineAt ? AbortSignal.timeout(Math.max(1, opts.deadlineAt - Date.now())) : undefined;
     let turn: Turn;
     try {
@@ -88,13 +92,13 @@ export async function runAgentLoop(
         opts.cred,
       );
     } catch (err) {
-      if (signal?.aborted) return { outcome: "deadline_hit", messages };
+      if (signal?.aborted) return { outcome: "deadline_hit", messages, toolCalls };
       throw err;
     }
     messages.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls });
     if (turn.usage) await opts.onEvent("usage", turn.usage);
     if (turn.text) await opts.onEvent("assistant_text", { text: turn.text });
-    if (turn.toolCalls.length === 0) return { outcome: "done", messages };
+    if (turn.toolCalls.length === 0) return { outcome: "done", messages, toolCalls };
 
     let capHit = false;
     for (const call of turn.toolCalls) {
@@ -117,7 +121,7 @@ export async function runAgentLoop(
       });
       messages.push({ role: "tool", toolCallId: call.id, content: result });
     }
-    if (capHit) return { outcome: "cap_hit", messages };
+    if (capHit) return { outcome: "cap_hit", messages, toolCalls };
   }
 }
 

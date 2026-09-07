@@ -71,7 +71,7 @@ export async function executeTestRun(opts: {
   adapter: ProviderAdapter;
   cred: Credential;
   model: string;
-  toolCallCap?: number;
+  toolCallCap: number;
   emit(type: string, payload: unknown, artifactKey?: string): Promise<void>;
   saveArtifact?: SaveArtifact;
 }): Promise<{ status: RunStatus; report: RunReport | null; screenshots: Screenshot[] }> {
@@ -106,7 +106,7 @@ export async function executeTestRun(opts: {
     const initial: ChatMessage[] = [
       { role: "user", content: [{ type: "text", text: "Begin. Execute the test plan now." }] },
     ];
-    const result = await runAgentLoop({
+    let result = await runAgentLoop({
       adapter: opts.adapter,
       cred: opts.cred,
       model: opts.model,
@@ -116,11 +116,33 @@ export async function executeTestRun(opts: {
       toolCallCap: opts.toolCallCap,
       onEvent: opts.emit,
     });
+    const remainingToolCalls = opts.toolCallCap - result.toolCalls;
+    if (!report && result.outcome === "done" && remainingToolCalls > 0) {
+      result = await runAgentLoop({
+        adapter: opts.adapter,
+        cred: opts.cred,
+        model: opts.model,
+        system,
+        messages: [
+          ...result.messages,
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "You stopped before completing the test plan. Continue from the current state, attempt every remaining step, then call `report`.",
+              },
+            ],
+          },
+        ],
+        tools,
+        toolCallCap: remainingToolCalls,
+        onEvent: opts.emit,
+      });
+    }
     outcome = result.outcome === "deadline_hit" ? "cap_hit" : result.outcome;
 
     if (!report) {
-      // The model stopped without calling report (budget cap, or it ended on
-      // a text-only turn) — get the evidence into a report anyway.
       await runAgentLoop({
         adapter: opts.adapter,
         cred: opts.cred,
