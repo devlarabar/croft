@@ -97,7 +97,7 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
       : undefined;
   if (!prNumber) return ctx.text("ignored", 200);
 
-  const match = payload.comment.body.trim().match(/^@(?:agent-)?croft\s+([\s\S]+)/i);
+  const match = payload.comment.body.trim().match(/^@(?:croft|agent-croft(?:\[bot\])?)\s+([\s\S]+)/i);
   if (!match) return ctx.text("ignored", 200);
 
   const cfg = await getConfig();
