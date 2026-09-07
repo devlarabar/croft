@@ -18,6 +18,7 @@ export type SaveArtifact = (
 ) => Promise<string>;
 
 const FIXTURES_DIR = fileURLToPath(new URL("../fixtures", import.meta.url));
+const resizeArgs = z.object({ width: z.number().int().positive(), height: z.number().int().positive() });
 const uploadArgs = z.object({
   selector: z.string(),
   filename: z.string().regex(/^[^./\\][^/\\]*$/),
@@ -59,6 +60,26 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
         const { url } = args as { url: string };
         await page.goto(url, { waitUntil: "load", timeout: 30_000 });
         return [{ type: "text", text: `Navigated to ${page.url()} — title: ${await page.title()}` }];
+      },
+    },
+    {
+      def: {
+        name: "browser_resize",
+        description: "Resize the browser viewport to the given width and height in pixels.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            width: { type: "number", minimum: 1 },
+            height: { type: "number", minimum: 1 },
+          },
+          required: ["width", "height"],
+        },
+      },
+      schema: resizeArgs,
+      async execute(args) {
+        const { width, height } = resizeArgs.parse(args);
+        await page.setViewportSize({ width, height });
+        return [{ type: "text", text: `Viewport resized to ${width}x${height}.` }];
       },
     },
     {
