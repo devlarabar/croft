@@ -27,7 +27,8 @@ RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 # git: review mode checks out the PR branch. ca-certificates: git verifies
 # github.com against the system store, which node-slim ships without.
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+# openssh-client: test mode queries the current preview's Postgres database.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates openssh-client \
   && npx playwright install --with-deps chromium \
   && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/packages/core/dist packages/core/dist

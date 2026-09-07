@@ -6,6 +6,7 @@ import type { ChatMessage, Credential, ProviderAdapter } from "@croft/core/llm/t
 import { openBrowserSession } from "./browser.js";
 import type { SaveArtifact, Screenshot } from "./browser.js";
 import { makeHttpTool } from "./http.js";
+import { makePreviewPostgresTool } from "./postgres.js";
 import { testSystemPrompt } from "./prompt.js";
 import type { PromptLogin } from "./prompt.js";
 
@@ -62,6 +63,7 @@ const reportToolDef = {
 
 export async function executeTestRun(opts: {
   runId: string;
+  prNumber?: number;
   previewUrl: string;
   plan: string;
   logins: PromptLogin[];
@@ -73,6 +75,7 @@ export async function executeTestRun(opts: {
   emit(type: string, payload: unknown, artifactKey?: string): Promise<void>;
   saveArtifact?: SaveArtifact;
 }): Promise<{ status: RunStatus; report: RunReport | null; screenshots: Screenshot[] }> {
+  const previewPostgresTool = opts.prNumber ? makePreviewPostgresTool(opts.prNumber) : null;
   const session = await openBrowserSession(opts.runId, opts.saveArtifact);
   let report: RunReport | null = null;
   const reportTool: AgentTool = {
@@ -83,7 +86,12 @@ export async function executeTestRun(opts: {
       return [{ type: "text", text: "Report recorded." }];
     },
   };
-  const tools = [...session.tools, makeHttpTool(opts.previewUrl), reportTool];
+  const tools = [
+    ...session.tools,
+    makeHttpTool(opts.previewUrl),
+    ...(previewPostgresTool ? [previewPostgresTool] : []),
+    reportTool,
+  ];
 
   const system = testSystemPrompt({
     previewUrl: opts.previewUrl,

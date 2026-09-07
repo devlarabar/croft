@@ -219,6 +219,7 @@ async function main() {
   }));
   const { status, report, screenshots } = await executeTestRun({
     runId: RUN_ID,
+    prNumber: run.prNumber,
     previewUrl: PREVIEW_URL,
     plan,
     logins,
