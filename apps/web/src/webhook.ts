@@ -133,11 +133,11 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
   if (!pr.head.repo || pr.head.repo.full_name !== repo) return ctx.text("fork PR", 200);
 
   const command = match[1]!.trim();
-  const testCmd = command.match(/^test(-fresh-plan)?$/i);
+  const testCmd = command.match(/^test(-fresh-plan)?\b/i);
   const learnCmd = command.match(/^add-learning\b\s*([\s\S]*)$/i);
   if (testCmd) {
     await startRun({ repo, prNumber, mode: "test", freshPlan: !!testCmd[1] });
-  } else if (/^review$/i.test(command)) {
+  } else if (/^review\b/i.test(command)) {
     await startRun({ repo, prNumber, mode: "review" });
   } else if (learnCmd) {
     try {
@@ -155,19 +155,19 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
       await reply(`Couldn't add that learning: ${(err as Error).message}`);
     }
   } else {
-    await reply(
-      await answerQuestion({
-        repo,
-        prNumber,
-        question: command,
-        comment: {
-          id: payload.comment.id,
-          kind: commentKind,
-          author: commenter,
-          sourceUrl: payload.comment.html_url,
-        },
-      }),
-    );
+    const response = await answerQuestion({
+      repo,
+      prNumber,
+      question: command,
+      comment: {
+        id: payload.comment.id,
+        kind: commentKind,
+        author: commenter,
+        sourceUrl: payload.comment.html_url,
+      },
+    });
+    if (response.startReview) await startRun({ repo, prNumber, mode: "review" });
+    else await reply(response.text);
   }
   return ctx.text("ok", 200);
 }
