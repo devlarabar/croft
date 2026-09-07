@@ -23,6 +23,10 @@ const uploadArgs = z.object({
   selector: z.string(),
   filename: z.string().regex(/^[^./\\][^/\\]*$/),
 });
+const waitArgs = z.object({
+  selector: z.string(),
+  timeoutSeconds: z.number().int().min(1).max(120).optional(),
+});
 
 export async function openBrowserSession(runId: string, save: SaveArtifact = uploadArtifact) {
   // gVisor: /tmp is memory-backed and counts against the job's 2 GB — record to
@@ -161,6 +165,27 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
         const { selector, filename } = uploadArgs.parse(args);
         await page.locator(selector).setInputFiles(join(FIXTURES_DIR, filename), { timeout: 10_000 });
         return [{ type: "text", text: `Uploaded ${filename} through ${selector}` }];
+      },
+    },
+    {
+      def: {
+        name: "browser_wait_for",
+        description:
+          "Wait for an expected element or text to become visible after an asynchronous action. Give a CSS selector, or text= / role= Playwright selector. Use this instead of repeatedly taking snapshots while work is pending.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            selector: { type: "string" },
+            timeoutSeconds: { type: "number", minimum: 1, maximum: 120 },
+          },
+          required: ["selector"],
+        },
+      },
+      schema: waitArgs,
+      async execute(args) {
+        const { selector, timeoutSeconds } = waitArgs.parse(args);
+        await page.locator(selector).waitFor({ state: "visible", timeout: (timeoutSeconds ?? 60) * 1000 });
+        return [{ type: "text", text: `${selector} is visible.` }];
       },
     },
     {
