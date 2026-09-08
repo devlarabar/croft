@@ -26,10 +26,10 @@ export WEB_URL=${WEB_URL:-http://localhost:3000}
 echo "waiting for postgres..."
 until docker compose exec -T postgres pg_isready -U croft >/dev/null 2>&1; do sleep 0.5; done
 
-pnpm build
+pnpm --filter @croft/core --filter @croft/worker build
 pnpm --filter @croft/core migrate
 
 trap 'kill 0' EXIT
-pnpm -r --parallel exec tsc --watch --preserveWatchOutput &
+pnpm --filter @croft/core --filter @croft/worker --parallel exec tsc --watch --preserveWatchOutput &
 echo "dashboard: http://localhost:3000 (auth disabled)"
-node --watch apps/web/dist/index.js
+pnpm --filter @croft/web dev

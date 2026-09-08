@@ -9,7 +9,7 @@ import {
   LEARNING_MAX_CHARS,
   loadCredential,
 } from "@croft/core";
-import { clip } from "./qa.js";
+import { clip } from "./qa";
 
 const LEARN_SYSTEM = `You are Croft. A maintainer has asked you to turn a pull request conversation
 into one durable learning: a rule you will apply when reviewing future PRs in this repository.

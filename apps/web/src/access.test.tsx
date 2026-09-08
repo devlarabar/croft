@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { Hono } from "hono";
-import { canAccess } from "./access.js";
-import { Layout } from "./layout.js";
+import { renderToStaticMarkup } from "react-dom/server";
+import { canAccess } from "./access";
+import { Layout } from "./layout";
 
 const runPath = "/runs/9fe4d6f2-c580-4acf-94c3-c5e5a994ccdb";
 const viewPaths = ["/", "/runs", runPath, `${runPath}/video`];
@@ -38,11 +38,9 @@ test("admins retain full dashboard access", () => {
   }
 });
 
-test("navigation only exposes permitted pages", async () => {
+test("navigation only exposes permitted pages", () => {
   for (const role of ["user", "member", "admin"] as const) {
-    const app = new Hono();
-    app.get("/", (ctx) => ctx.html(<Layout title="Test" role={role}>Content</Layout>));
-    const html = await (await app.request("/")).text();
+    const html = renderToStaticMarkup(<Layout title="Test" role={role}>Content</Layout>);
     assert.equal(html.includes('href="/runs"'), role !== "user");
     assert.equal(html.includes('href="/users"'), role === "admin");
     assert.equal(html.includes('href="/settings"'), role === "admin");

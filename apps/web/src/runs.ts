@@ -8,13 +8,11 @@ import {
   schema,
 } from "@croft/core";
 import type { RunMode } from "@croft/core";
-import { startJob } from "./scaleway.js";
+import { startJob } from "./scaleway";
 
-export interface StartRunResult {
-  runId: string;
-  started: boolean;
-  reason?: string;
-}
+export type StartRunResult =
+  | { runId: string; started: true }
+  | { runId: string; started: false; reason: string };
 
 // Shared by UI "Run" and the comment webhook: one code path.
 export async function startRun(opts: {

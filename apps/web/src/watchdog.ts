@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { createCheckRun, db, finishRunFlavour, getPr, schema } from "@croft/core";
-import { getJobRunState } from "./scaleway.js";
+import { getJobRunState } from "./scaleway";
 
 const LIVE_JOB_STATES = ["queued", "scheduled", "running"];
 

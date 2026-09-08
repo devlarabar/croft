@@ -4,7 +4,7 @@ Self-hosted agent that tests GitHub PRs against their preview deployments.
 See `docs/project-setup-planning/PLAN.md` for the full design.
 
 Monorepo: `packages/core` (schema, LLM layer, GitHub/S3 helpers), `apps/web`
-(control plane + dashboard, Hono), `apps/worker` (agent runtime, Playwright).
+(control plane + dashboard, Next.js), `apps/worker` (agent runtime, Playwright).
 
 ## Environment variables
 
@@ -44,8 +44,8 @@ GitHub App PEM out of it — export those from a file instead, e.g.
 `export GITHUB_APP_PRIVATE_KEY="$(cat croft-pkcs8.pem)"`), starts Postgres and
 MinIO via docker compose
 (bucket created public-read automatically), waits for the DB, runs migrations,
-builds everything, then serves the dashboard on http://localhost:3000 with
-`tsc --watch` + `node --watch` reload. Defaults it exports (override by
+builds core and worker, then serves the dashboard on http://localhost:3000 with
+Next.js hot reload and `tsc --watch` for core and worker. Defaults it exports (override by
 exporting your own before running): `DATABASE_URL`,
 `S3_ENDPOINT=http://localhost:9000` (switches the S3 client to path-style
 MinIO URLs), `S3_BUCKET`, `S3_ACCESS_KEY`/`S3_SECRET_KEY`, `DEV_NO_AUTH=1`,
@@ -135,6 +135,20 @@ Actions secret). To run them manually:
 DATABASE_URL=<prod-connection-string> pnpm --filter @croft/core migrate
 ```
 
+## Migration verification
+
+```sh
+pnpm --filter @croft/web test
+pnpm --filter @croft/web build
+bash scripts/check-web-image.sh
+```
+
+The image check builds both images for `linux/amd64` and tests the standalone server against
+a disposable Postgres database, limited to Scaleway's 512 MB / 250 mCPU budget.
+It checks dashboard access, forms, assets, exports and signed webhooks without
+calling GitHub, model providers or Scaleway. Its containers and database are
+removed on exit; it does not use the development or production database.
+
 ## Key rotation
 
 Re-encrypt all stored secrets (credentials, preview-login passwords) under a
@@ -155,5 +169,7 @@ Provisioning (registry, DB, bucket, container, job definition, GitHub App,
 billing alert) is manual — steps in PLAN.md §Scaleway deployment. CI
 (`.github/workflows/deploy.yml`) builds both images on push to `main`, pushes
 them to `rg.fr-par.scw.cloud/croft`, redeploys the web container and points the
-job definition at the new worker tag. Actions secrets: `SCW_SECRET_KEY`,
+job definition at the new worker tag. The web image runs Next.js standalone on
+`0.0.0.0:3000`, with runtime secrets supplied by Scaleway; the image build needs
+no database or credentials. Actions secrets: `SCW_SECRET_KEY`,
 `SCW_CONTAINER_ID`, `SCW_JOB_DEFINITION_ID`, `DATABASE_URL`.

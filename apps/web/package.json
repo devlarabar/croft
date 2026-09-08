@@ -4,24 +4,32 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "test": "pnpm build && node --test dist/*.test.js",
-    "start": "node dist/index.js",
-    "dev": "tsc --watch"
+    "build": "next build",
+    "test": "node --import tsx --test src/*.test.ts src/*.test.tsx",
+    "test:deployment": "node --import tsx --test tests/deployment.test.ts",
+    "start": "next start --hostname 0.0.0.0",
+    "dev": "next dev --hostname 0.0.0.0"
   },
   "dependencies": {
     "@croft/core": "workspace:*",
-    "@hono/node-server": "^1.14.0",
-    "@hono/swagger-ui": "^0.6.1",
     "@octokit/webhooks": "^13.7.4",
     "archiver": "^7.0.1",
     "drizzle-orm": "^0.44.0",
-    "hono": "^4.7.0",
+    "cookie": "^1.0.2",
+    "clsx": "^2.1.1",
+    "next": "16.3.4",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.3",
     "@types/node": "^22.13.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@tailwindcss/postcss": "^4.1.0",
+    "tailwindcss": "^4.1.0",
+    "tsx": "^4.20.0",
     "typescript": "^5.7.0"
   }
 }

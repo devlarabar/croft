@@ -1,5 +1,5 @@
 import { Webhooks } from "@octokit/webhooks";
-import type { Context } from "hono";
+import { z } from "zod";
 import {
   addEyesReaction,
   botLogin,
@@ -10,129 +10,106 @@ import {
   replyToReviewComment,
   schema,
 } from "@croft/core";
-import { learnFromComment } from "./learn.js";
-import { answerQuestion } from "./qa.js";
-import { startRun } from "./runs.js";
+import { learnFromComment } from "./learn";
+import { answerQuestion } from "./qa";
+import { startRun } from "./runs";
 
-// Lazy: local dev without webhook config must still boot the dashboard.
-let _webhooks: Webhooks | undefined;
+let webhookVerifier: Webhooks | undefined;
 function webhooks(): Webhooks {
   if (!process.env.GITHUB_WEBHOOK_SECRET) throw new Error("GITHUB_WEBHOOK_SECRET not configured");
-  _webhooks ??= new Webhooks({ secret: process.env.GITHUB_WEBHOOK_SECRET });
-  return _webhooks;
+  webhookVerifier ??= new Webhooks({ secret: process.env.GITHUB_WEBHOOK_SECRET });
+  return webhookVerifier;
 }
 
 const TRUSTED_ASSOCIATIONS = ["OWNER", "MEMBER", "COLLABORATOR"];
+const repositorySchema = z.object({ full_name: z.string() });
+const pullRequestSchema = z.object({
+  action: z.string(),
+  pull_request: z.object({
+    number: z.number(), draft: z.boolean(), head: z.object({ repo: repositorySchema.nullable() }),
+  }),
+  requested_reviewer: z.object({ login: z.string() }).optional(),
+  repository: repositorySchema,
+});
+const commentSchema = z.object({
+  action: z.string(),
+  issue: z.object({ number: z.number(), pull_request: z.object({}).optional() }).optional(),
+  pull_request: z.object({ number: z.number() }).optional(),
+  comment: z.object({
+    id: z.number(), body: z.string(), html_url: z.string(), author_association: z.string(),
+    user: z.object({ login: z.string() }),
+  }),
+  repository: repositorySchema,
+});
 
-// Auto-review: a PR opened non-draft, promoted out of draft, or explicitly
-// assigned back to Croft starts a review run.
-async function handlePullRequest(ctx: Context, body: string): Promise<Response> {
-  const payload = JSON.parse(body) as {
-    action: string;
-    pull_request: { number: number; draft: boolean; head: { repo: { full_name: string } | null } };
-    requested_reviewer?: { login: string };
-    repository: { full_name: string };
-  };
+async function handlePullRequest(body: string): Promise<Response> {
+  const payload = pullRequestSchema.parse(JSON.parse(body));
   const requested = payload.action === "review_requested";
-  if (!requested && payload.action !== "opened" && payload.action !== "ready_for_review")
-    return ctx.text("ignored", 200);
-  if (payload.pull_request.draft) return ctx.text("draft PR", 200);
+  if (!requested && payload.action !== "opened" && payload.action !== "ready_for_review") return new Response("ignored");
+  if (payload.pull_request.draft) return new Response("draft PR");
 
   const cfg = await getConfig();
   const repo = payload.repository.full_name;
   if (requested) {
-    if (payload.requested_reviewer?.login !== (await botLogin())) return ctx.text("another reviewer", 200);
-    if (!cfg.repos.includes(repo)) return ctx.text("repo not allow-listed", 200);
+    if (payload.requested_reviewer?.login !== (await botLogin())) return new Response("another reviewer");
+    if (!cfg.repos.includes(repo)) return new Response("repo not allow-listed");
   } else if (!cfg.autoReviewRepos.includes(repo)) {
-    return ctx.text("repo not opted in", 200);
+    return new Response("repo not opted in");
   }
-  if (!cfg.webhooksEnabled) return ctx.text("webhooks disabled", 200);
-  // Never on PRs from forks: the agent reads attacker-controllable PR text
-  // while holding GitHub write tools.
+  if (!cfg.webhooksEnabled) return new Response("webhooks disabled");
   const head = payload.pull_request.head.repo;
-  if (!head || head.full_name !== repo) return ctx.text("fork PR", 200);
+  if (!head || head.full_name !== repo) return new Response("fork PR");
 
   await startRun({ repo, prNumber: payload.pull_request.number, mode: "review" });
-  return ctx.text("ok", 200);
+  return new Response("ok");
 }
 
-export async function handleWebhook(ctx: Context): Promise<Response> {
-  const body = await ctx.req.text();
-  const signature = ctx.req.header("x-hub-signature-256") ?? "";
-  if (!(await webhooks().verify(body, signature))) return ctx.text("bad signature", 401);
+export async function handleWebhook(request: Request): Promise<Response> {
+  const body = await request.text();
+  const signature = request.headers.get("x-hub-signature-256") ?? "";
+  if (!(await webhooks().verify(body, signature))) return new Response("bad signature", { status: 401 });
 
-  // GitHub redelivers webhooks: insert-or-ignore the delivery id so a
-  // redelivered comment can't start a duplicate run.
-  const deliveryId = ctx.req.header("x-github-delivery") ?? "";
-  const inserted = await db
-    .insert(schema.webhookDeliveries)
-    .values({ deliveryId })
-    .onConflictDoNothing()
-    .returning();
-  if (inserted.length === 0) return ctx.text("duplicate delivery", 200);
+  // GitHub redelivers webhooks; each delivery starts work at most once.
+  const deliveryId = request.headers.get("x-github-delivery") ?? "";
+  const inserted = await db.insert(schema.webhookDeliveries).values({ deliveryId }).onConflictDoNothing().returning();
+  if (inserted.length === 0) return new Response("duplicate delivery");
 
-  const event = ctx.req.header("x-github-event");
-  if (event === "pull_request") return handlePullRequest(ctx, body);
-  // Inline review-thread comments arrive as their own event type.
+  const event = request.headers.get("x-github-event");
+  if (event === "pull_request") return handlePullRequest(body);
   const isReviewComment = event === "pull_request_review_comment";
-  if (event !== "issue_comment" && !isReviewComment) return ctx.text("ignored", 200);
-  const payload = JSON.parse(body) as {
-    action: string;
-    issue?: { number: number; pull_request?: object };
-    pull_request?: { number: number };
-    comment: {
-      id: number;
-      body: string;
-      html_url: string;
-      author_association: string;
-      user: { login: string };
-    };
-    repository: { full_name: string };
-  };
-  if (payload.action !== "created") return ctx.text("ignored", 200);
-  const prNumber = isReviewComment
-    ? payload.pull_request?.number
-    : payload.issue?.pull_request
-      ? payload.issue.number
-      : undefined;
-  if (!prNumber) return ctx.text("ignored", 200);
+  if (event !== "issue_comment" && !isReviewComment) return new Response("ignored");
+  const payload = commentSchema.parse(JSON.parse(body));
+  if (payload.action !== "created") return new Response("ignored");
+  let prNumber = payload.pull_request?.number;
+  if (!isReviewComment) prNumber = payload.issue?.pull_request ? payload.issue.number : undefined;
+  if (!prNumber) return new Response("ignored");
 
   const match = payload.comment.body.trim().match(/^@(?:croft|agent-croft(?:\[bot\])?)\s+([\s\S]+)/i);
-  if (!match) return ctx.text("ignored", 200);
+  if (!match) return new Response("ignored");
 
   const cfg = await getConfig();
   const repo = payload.repository.full_name;
-  if (!cfg.repos.includes(repo)) return ctx.text("repo not allow-listed", 200);
-
-  // Anyone else could spend LLM budget — and the agent reads
-  // attacker-controllable PR text while holding GitHub write tools.
+  if (!cfg.repos.includes(repo)) return new Response("repo not allow-listed");
   const commenter = payload.comment.user.login;
-  const allowed =
-    TRUSTED_ASSOCIATIONS.includes(payload.comment.author_association) ||
-    cfg.allowedUsers.includes(commenter);
-  if (!allowed) return ctx.text("commenter not allowed", 200);
+  const allowed = TRUSTED_ASSOCIATIONS.includes(payload.comment.author_association) || cfg.allowedUsers.includes(commenter);
+  if (!allowed) return new Response("commenter not allowed");
 
-  // Ack receipt on the triggering comment before doing any work.
   const commentKind = isReviewComment ? "review" : "issue";
   await addEyesReaction(repo, payload.comment.id, commentKind);
+  const number = prNumber;
+  const reply = (text: string) => isReviewComment
+    ? replyToReviewComment(repo, number, payload.comment.id, text)
+    : postPrComment(repo, number, text);
 
-  // Answer where the question was asked: in the thread, or on the PR.
-  const reply = (text: string) =>
-    isReviewComment
-      ? replyToReviewComment(repo, prNumber, payload.comment.id, text)
-      : postPrComment(repo, prNumber, text);
-
-  // Master toggle: say so instead of silently ignoring. No LLM calls.
   if (!cfg.webhooksEnabled) {
     await reply("Webhook actions are disabled.");
-    return ctx.text("webhooks disabled", 200);
+    return new Response("webhooks disabled");
   }
 
-  // Never on PRs from forks.
   const pr = await getPr(repo, prNumber);
-  if (!pr.head.repo || pr.head.repo.full_name !== repo) return ctx.text("fork PR", 200);
+  if (!pr.head.repo || pr.head.repo.full_name !== repo) return new Response("fork PR");
 
-  const command = match[1]!.trim();
+  const command = z.string().parse(match[1]).trim();
   const testCmd = command.match(/^test(-fresh-plan)?\b/i);
   const learnCmd = command.match(/^add-learning\b\s*([\s\S]*)$/i);
   if (testCmd) {
@@ -146,13 +123,14 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
         prNumber,
         commentId: payload.comment.id,
         kind: commentKind,
-        hint: learnCmd[1]!.trim(),
+        hint: z.string().parse(learnCmd[1]).trim(),
         author: commenter,
         sourceUrl: payload.comment.html_url,
       });
       await reply(`Learned, and I'll apply it to future reviews of \`${repo}\`:\n\n> ${learning}`);
-    } catch (err) {
-      await reply(`Couldn't add that learning: ${(err as Error).message}`);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      await reply(`Couldn't add that learning: ${error.message}`);
     }
   } else {
     const response = await answerQuestion({
@@ -169,5 +147,5 @@ export async function handleWebhook(ctx: Context): Promise<Response> {
     if (response.startReview) await startRun({ repo, prNumber, mode: "review" });
     else await reply(response.text);
   }
-  return ctx.text("ok", 200);
+  return new Response("ok");
 }
