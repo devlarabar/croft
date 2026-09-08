@@ -5,7 +5,8 @@ import { Webhooks } from "@octokit/webhooks";
 import { db, decrypt, getConfig, schema, type DashboardRole } from "@croft/core";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { setSession } from "../src/session";
+import { sessionUser, setOAuthState, setSession } from "../src/session";
+import { GET as loginCallback } from "../src/app/login/callback/route";
 
 type RunInsert = typeof schema.runs.$inferInsert;
 
@@ -166,6 +167,34 @@ test("activity, OAuth, and export endpoints keep their authentication and respon
   assert.ok(zip.includes("runs.jsonl"));
   assert.ok(zip.includes("events.jsonl"));
   assert.equal((await submit("/api/purge", {})).headers.get("location"), "/export?notice=Purge+not+confirmed+%E2%80%94+type+delete");
+});
+
+test("OAuth callbacks preserve existing roles and register new users with restricted access", async (context) => {
+  for (const githubId of [...Object.values(users), "3"]) {
+    const role = githubId === "3" ? "user" : (await db.select().from(schema.dashboardUsers)
+      .where(eq(schema.dashboardUsers.githubId, githubId)))[0]?.role;
+    assert.ok(role);
+    for (const username of ["login-name", "renamed-login"]) {
+      const github = context.mock.method(globalThis, "fetch", async (url) => {
+        if (url === "https://github.com/login/oauth/access_token") return Response.json({ access_token: "test-token" });
+        assert.equal(url, "https://api.github.com/user");
+        return Response.json({ id: Number(githubId), login: username });
+      });
+      const state = new Response();
+      setOAuthState(state, { provider: "github-login", state: "test-state", verifier: "" });
+      const response = await loginCallback(new Request(`${origin}/login/callback?code=test-code&state=test-state`, {
+        headers: { cookie: state.headers.getSetCookie().map((cookie) => cookie.split(";")[0]).join("; ") },
+      }), undefined);
+      github.mock.restore();
+      assert.equal(response.status, 302, githubId);
+      assert.equal(response.headers.get("location"), "/runs");
+      assert.equal(sessionUser(new Request(origin, {
+        headers: { cookie: response.headers.getSetCookie().map((cookie) => cookie.split(";")[0]).join("; ") },
+      })), githubId);
+      const [saved] = await db.select().from(schema.dashboardUsers).where(eq(schema.dashboardUsers.githubId, githubId));
+      assert.deepEqual(saved, { githubId, username, role });
+    }
+  }
 });
 
 test("large signed webhooks reach verification intact and delivery IDs remain idempotent", async () => {
