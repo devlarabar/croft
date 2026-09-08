@@ -175,7 +175,7 @@ test("OAuth callbacks preserve existing roles and register new users with restri
       .where(eq(schema.dashboardUsers.githubId, githubId)))[0]?.role;
     assert.ok(role);
     for (const username of ["login-name", "renamed-login"]) {
-      const github = context.mock.method(globalThis, "fetch", async (url) => {
+      const github = context.mock.method(globalThis, "fetch", async (url: Parameters<typeof fetch>[0]) => {
         if (url === "https://github.com/login/oauth/access_token") return Response.json({ access_token: "test-token" });
         assert.equal(url, "https://api.github.com/user");
         return Response.json({ id: Number(githubId), login: username });
