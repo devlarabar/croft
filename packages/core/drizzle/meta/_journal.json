@@ -92,6 +92,13 @@
       "when": 1786697877163,
       "tag": "0012_previous_ser_duncan",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1788852213833,
+      "tag": "0013_black_grandmaster",
+      "breakpoints": true
     }
   ]
 }

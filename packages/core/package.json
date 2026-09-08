@@ -11,7 +11,8 @@
     "build": "node scripts/gen-skills.mjs && tsc",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
-    "rotate-key": "node dist/rotate-key.js"
+    "rotate-key": "node dist/rotate-key.js",
+    "private-videos": "node dist/private-videos.js"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.167",

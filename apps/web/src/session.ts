@@ -1,6 +1,10 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import type { Context, Next } from "hono";
+import type { Context } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
+import { z } from "zod";
+
+export const githubUserSchema = z.object({ id: z.number().int().positive(), login: z.string().min(1) });
+const sessionSchema = z.object({ githubId: z.string(), exp: z.number() });
 
 const COOKIE = "croft_session";
 const OAUTH_COOKIE = "croft_oauth";
@@ -20,9 +24,9 @@ function verify(token: string | undefined): string | null {
   return payload;
 }
 
-export function setSession(ctx: Context, username: string): void {
+export function setSession(ctx: Context, githubId: string): void {
   const exp = Date.now() + 30 * 24 * 3600 * 1000;
-  setCookie(ctx, COOKIE, sign(JSON.stringify({ username, exp })), {
+  setCookie(ctx, COOKIE, sign(JSON.stringify({ githubId, exp })), {
     httpOnly: true,
     secure: true,
     sameSite: "Lax",
@@ -34,8 +38,8 @@ export function setSession(ctx: Context, username: string): void {
 export function sessionUser(ctx: Context): string | null {
   const payload = verify(getCookie(ctx, COOKIE));
   if (!payload) return null;
-  const { username, exp } = JSON.parse(payload) as { username: string; exp: number };
-  return exp > Date.now() ? username : null;
+  const result = sessionSchema.safeParse(JSON.parse(payload));
+  return result.success && result.data.exp > Date.now() ? result.data.githubId : null;
 }
 
 // Short-lived signed cookie carrying OAuth state + PKCE verifier between
@@ -67,14 +71,6 @@ export function newState(): string {
   return randomBytes(16).toString("base64url");
 }
 
-// GitHub OAuth login restricted to DASHBOARD_USER.
-export async function requireAuth(ctx: Context, next: Next) {
-  // Local dev only: skip GitHub login entirely.
-  if (process.env.DEV_NO_AUTH === "1") return next();
-  if (sessionUser(ctx)) return next();
-  return ctx.redirect("/login");
-}
-
 export function githubLoginUrl(state: string): string {
   const url = new URL("https://github.com/login/oauth/authorize");
   url.searchParams.set("client_id", process.env.GITHUB_OAUTH_CLIENT_ID!);
@@ -82,7 +78,7 @@ export function githubLoginUrl(state: string): string {
   return url.toString();
 }
 
-export async function githubExchange(code: string): Promise<string | null> {
+export async function githubExchange(code: string) {
   const res = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: { "content-type": "application/json", accept: "application/json" },
@@ -92,11 +88,13 @@ export async function githubExchange(code: string): Promise<string | null> {
       code,
     }),
   });
-  const { access_token } = (await res.json()) as { access_token?: string };
-  if (!access_token) return null;
+  if (!res.ok) return null;
+  const token = z.object({ access_token: z.string() }).safeParse(await res.json());
+  if (!token.success) return null;
   const userRes = await fetch("https://api.github.com/user", {
-    headers: { authorization: `Bearer ${access_token}`, "user-agent": "croft" },
+    headers: { authorization: `Bearer ${token.data.access_token}`, "user-agent": "croft" },
   });
-  const user = (await userRes.json()) as { login?: string };
-  return user.login ?? null;
+  if (!userRes.ok) return null;
+  const user = githubUserSchema.safeParse(await userRes.json());
+  return user.success ? user.data : null;
 }

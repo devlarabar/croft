@@ -4,6 +4,7 @@ import {
   ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
+  S3ServiceException,
 } from "@aws-sdk/client-s3";
 import { withRetry } from "./retry.js";
 
@@ -23,8 +24,7 @@ export const s3 = new S3Client({
 
 export const BUCKET = process.env.S3_BUCKET ?? "croft-artifacts";
 
-// Objects are public-read and referenced by plain URLs — presigned URLs rot
-// behind GitHub's Camo cache.
+// Screenshots stay public because expiring URLs rot behind GitHub's Camo cache.
 export function publicUrl(key: string): string {
   if (CUSTOM_ENDPOINT) return `${CUSTOM_ENDPOINT}/${BUCKET}/${key}`;
   return `https://${BUCKET}.s3.${REGION}.scw.cloud/${key}`;
@@ -44,7 +44,7 @@ export async function uploadArtifact(
           Key: key,
           Body: body,
           ContentType: contentType,
-          ACL: "public-read",
+          ACL: contentType === "video/webm" ? "private" : "public-read",
         }),
       ),
     { attempts: 3 },
@@ -52,12 +52,11 @@ export async function uploadArtifact(
   return publicUrl(key);
 }
 
-export async function getArtifactStream(key: string) {
+export async function getArtifact(key: string, range?: string) {
   try {
-    const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
-    return res.Body ?? null;
+    return await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key, Range: range }));
   } catch (err) {
-    if ((err as { name?: string }).name === "NoSuchKey") return null;
+    if (err instanceof S3ServiceException && err.name === "NoSuchKey") return null;
     throw err;
   }
 }

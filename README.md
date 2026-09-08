@@ -20,7 +20,6 @@ Monorepo: `packages/core` (schema, LLM layer, GitHub/S3 helpers), `apps/web`
 | `GITHUB_APP_ID` / `GITHUB_APP_PRIVATE_KEY` | GitHub App (PRs r/w, checks w, contents r; events `pull_request`, `issue_comment`, `pull_request_review_comment`) |
 | `GITHUB_WEBHOOK_SECRET` | webhook signature secret |
 | `GITHUB_OAUTH_CLIENT_ID` / `GITHUB_OAUTH_CLIENT_SECRET` | GitHub OAuth app for dashboard login |
-| `DASHBOARD_USER` | the single GitHub username allowed to log in |
 | `SCW_SECRET_KEY` | Scaleway API key (job-start capable) |
 | `SCW_JOB_DEFINITION_ID` | worker job definition to start per run |
 
@@ -97,6 +96,35 @@ same-host only.
 ## Activity API
 
 `GET /api/v1/activity` returns Croft's entire latest run row, including his first-person activity in `flavourText`. Send the key configured in `CROFT_API_KEY` as the `X-API-Key` header. Interactive docs are available at `/api/docs`, with the OpenAPI spec at `/api/openapi.json`.
+
+## Dashboard access
+
+Anyone can sign in with GitHub. New accounts get `user` (only a content-unavailable
+page); `member` can view runs and videos; `admin` has full dashboard access.
+`devlarabar` is seeded as the initial admin, tied to GitHub account ID `122644200`,
+and cannot be demoted. Admins manage roles at **Users**, including granting access
+by GitHub username before first sign-in and promoting other admins. Roles are
+checked on every request, so changes apply to existing sessions immediately.
+The Settings comment-trigger allow-list is separate from dashboard access.
+Existing sessions must sign in again after this update. `DEV_NO_AUTH=1` retains
+full admin access for local development only.
+
+### Video access rollout
+
+Run the database migration and deploy both web and worker. New video uploads
+are private and stream through the authenticated dashboard; screenshots remain
+public for GitHub PR comments. With the existing S3 credentials exported, run:
+
+```sh
+pnpm --filter @croft/core private-videos
+```
+
+This removes public object ACLs from existing videos (safe to rerun). Also remove
+any bucket policy granting anonymous reads to `.webm` objects, including the
+local MinIO public-read policy, or it overrides private object ACLs. Verify an
+old video's direct storage URL returns 403 anonymously before considering the
+rollout complete. Dashboard playback should still work for members and admins.
+The API-key-protected activity endpoint and signed GitHub webhooks are unchanged.
 
 ## Migrations
 

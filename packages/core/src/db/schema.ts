@@ -11,6 +11,21 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+export type DashboardRole = "user" | "member" | "admin";
+
+export const dashboardUsers = pgTable(
+  "dashboard_users",
+  {
+    githubId: text("github_id").primaryKey(),
+    username: text("username").notNull(),
+    role: text("role").$type<DashboardRole>().notNull().default("user"),
+  },
+  (table) => [
+    check("dashboard_role", sql`${table.role} in ('user', 'member', 'admin')`),
+    check("dashboard_owner", sql`${table.githubId} <> '122644200' or ${table.role} = 'admin'`),
+  ],
+);
+
 export type RunStatus =
   | "queued"
   | "starting"

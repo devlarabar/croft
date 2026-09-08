@@ -4,6 +4,9 @@ import { serve } from "@hono/node-server";
 import { swaggerUI } from "@hono/swagger-ui";
 import { desc, eq } from "drizzle-orm";
 import { Hono } from "hono";
+import { csrf } from "hono/csrf";
+import { deleteCookie } from "hono/cookie";
+import { HTTPException } from "hono/http-exception";
 import { z } from "zod";
 import {
   addLearning,
@@ -14,16 +17,17 @@ import {
   exchangeCode,
   finishRunFlavour,
   generatePkce,
+  getArtifact,
   getConfig,
   getProvider,
   LEARNING_MAX_CHARS,
   listOpenPrs,
   PROVIDERS,
-  publicUrl,
   schema,
   updateConfig,
 } from "@croft/core";
 import type { PreviewLogin } from "@croft/core";
+import { requireAuth, type DashboardEnv } from "./access.js";
 import { getLatestActivity } from "./activity.js";
 import { exportZip, purge } from "./export.js";
 import {
@@ -46,7 +50,6 @@ import {
   githubExchange,
   githubLoginUrl,
   newState,
-  requireAuth,
   setOAuthState,
   setSession,
 } from "./session.js";
@@ -54,23 +57,19 @@ import { stopJob } from "./scaleway.js";
 import { handleLocalRun } from "./localrun.js";
 import { openApiSpec } from "./openapi.js";
 import { handleWebhook } from "./webhook.js";
+import { users } from "./users.js";
 
-const app = new Hono();
+const app = new Hono<DashboardEnv>();
 const RUNS_PER_PAGE = 25;
 
-// Single-user dashboard: show the real error instead of a bare 500.
 app.onError((err, ctx) => {
+  if (err instanceof HTTPException) return err.getResponse();
   console.error(err);
-  return ctx.text(`${err.message}\n\n${err.stack ?? ""}`, 500);
+  return ctx.text("Something went wrong. Please try again.", 500);
 });
 
 // Public endpoints; everything else requires the dashboard session.
 app.get("/api/v1/activity", getLatestActivity);
-app.get("/api/openapi.json", (ctx) => ctx.json(openApiSpec));
-app.get(
-  "/api/docs",
-  swaggerUI({ url: "/api/openapi.json", title: "Croft API docs", version: "5.32.14" }),
-);
 app.post("/api/webhooks/github", handleWebhook);
 // Ad-hoc local runs — the route only exists on the auth-less dev stack.
 if (process.env.DEV_NO_AUTH === "1") app.post("/api/local-runs", handleLocalRun);
@@ -88,13 +87,21 @@ app.get("/login/callback", async (ctx) => {
   if (!oauthState || oauthState.provider !== "github-login" || oauthState.state !== ctx.req.query("state")) {
     return ctx.text("bad oauth state", 400);
   }
-  const login = await githubExchange(ctx.req.query("code") ?? "");
-  if (!login || login !== process.env.DASHBOARD_USER) return ctx.text("forbidden", 403);
-  setSession(ctx, login);
+  deleteCookie(ctx, "croft_oauth", { path: "/" });
+  const user = await githubExchange(ctx.req.query("code") ?? "");
+  if (!user) return ctx.text("GitHub sign-in failed. Please try signing in again.", 401);
+  const githubId = String(user.id);
+  await db.insert(schema.dashboardUsers).values({ githubId, username: user.login })
+    .onConflictDoUpdate({ target: schema.dashboardUsers.githubId, set: { username: user.login } });
+  setSession(ctx, githubId);
   return ctx.redirect("/runs");
 });
 
 app.use("*", requireAuth);
+app.use("*", csrf());
+app.route("/users", users);
+app.get("/api/openapi.json", (ctx) => ctx.json(openApiSpec));
+app.get("/api/docs", swaggerUI({ url: "/api/openapi.json", title: "Croft API docs", version: "5.32.14" }));
 
 app.get("/", (ctx) => ctx.redirect("/runs"));
 
@@ -108,14 +115,26 @@ app.get("/runs", async (ctx) => {
     .limit(RUNS_PER_PAGE + 1)
     .offset((page.data - 1) * RUNS_PER_PAGE);
   return ctx.html(
-    <RunsPage runs={runs.slice(0, RUNS_PER_PAGE)} page={page.data} hasNext={runs.length > RUNS_PER_PAGE} />,
+    <RunsPage runs={runs.slice(0, RUNS_PER_PAGE)} page={page.data} hasNext={runs.length > RUNS_PER_PAGE} role={ctx.get("role")} />,
   );
 });
 
 app.get("/runs/:id", async (ctx) => {
   const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, ctx.req.param("id")));
   if (!run) return ctx.notFound();
-  return ctx.html(<RunDetailPage run={run} videoUrl={publicUrl(`${run.id}/run.webm`)} />);
+  return ctx.html(<RunDetailPage run={run} videoUrl={`/runs/${run.id}/video`} role={ctx.get("role")} />);
+});
+
+app.get("/runs/:id/video", async (ctx) => {
+  const id = z.uuid().safeParse(ctx.req.param("id"));
+  if (!id.success) return ctx.notFound();
+  const artifact = await getArtifact(`${id.data}/run.webm`, ctx.req.header("range"));
+  if (!artifact?.Body) return ctx.notFound();
+  ctx.header("Content-Type", "video/webm");
+  ctx.header("Accept-Ranges", "bytes");
+  if (artifact.ContentLength !== undefined) ctx.header("Content-Length", String(artifact.ContentLength));
+  if (artifact.ContentRange) ctx.header("Content-Range", artifact.ContentRange);
+  return ctx.body(artifact.Body.transformToWebStream(), artifact.ContentRange ? 206 : 200);
 });
 
 app.get("/new", async (ctx) => {

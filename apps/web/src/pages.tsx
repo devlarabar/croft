@@ -1,5 +1,5 @@
-import type { Child } from "hono/jsx";
-import type { ActiveModel, Config, Learning, PreviewLogin, ProviderAdapter, RunStatus, schema } from "@croft/core";
+import { Layout } from "./layout.js";
+import type { ActiveModel, Config, DashboardRole, Learning, PreviewLogin, ProviderAdapter, RunStatus, schema } from "@croft/core";
 import { LEARNING_CAP, LEARNING_MAX_CHARS } from "@croft/core";
 
 type Run = typeof schema.runs.$inferSelect;
@@ -9,6 +9,13 @@ interface RunsPageProps {
   runs: Run[];
   page: number;
   hasNext: boolean;
+  role: DashboardRole;
+}
+
+interface RunDetailPageProps {
+  run: Run;
+  videoUrl: string;
+  role: DashboardRole;
 }
 
 // DD/MM/YYYY HH:MM
@@ -17,56 +24,16 @@ function fmtDate(date: Date): string {
   return `${pad(date.getUTCDate())}/${pad(date.getUTCMonth() + 1)}/${date.getUTCFullYear()} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
-const NAV = [
-  ["/runs", "Runs"],
-  ["/new", "New run"],
-  ["/models", "Models"],
-  ["/chat", "Chat"],
-  ["/learnings", "Learnings"],
-  ["/export", "Export & clean up"],
-  ["/settings", "Settings"],
-  ["/api/docs", "API docs"],
-];
-
-export function Layout(props: { title: string; children: Child }) {
-  return (
-    <html>
-      <head>
-        <title>{props.title} — Croft</title>
-        <link rel="stylesheet" href="/styles.css" />
-      </head>
-      <body>
-        <nav>
-          <a class="brand" href="/runs">
-            Croft
-          </a>
-          {NAV.map(([href, label]) => (
-            <a href={href} class={label === props.title ? "active" : undefined}>
-              {label}
-            </a>
-          ))}
-          <a class="external" href="https://github.com/devlarabar/croft" target="_blank" rel="noreferrer">
-            GitHub ↗
-          </a>
-        </nav>
-        <main>{props.children}</main>
-      </body>
-    </html>
-  );
-}
-
 function StatusCell({ status }: { status: RunStatus }) {
   return <span class={`status-${status}`}>{status}</span>;
 }
 
-export function RunsPage({ runs, page, hasNext }: RunsPageProps) {
+export function RunsPage({ runs, page, hasNext, role }: RunsPageProps) {
   return (
-    <Layout title="Runs">
+    <Layout title="Runs" role={role}>
       <div class="page-head">
         <h1>Runs</h1>
-        <a class="btn" href="/new">
-          New run
-        </a>
+        {role === "admin" ? <a class="btn" href="/new">New run</a> : null}
       </div>
       <table class="runs-table">
         <tr>
@@ -106,12 +73,12 @@ export function RunsPage({ runs, page, hasNext }: RunsPageProps) {
             </td>
             <td>
               <a href={`/runs/${run.id}`}>video</a>
-              {run.status === "failed" || run.status === "error" || run.status === "partial" || run.status === "canceled" ? (
+              {role === "admin" && (run.status === "failed" || run.status === "error" || run.status === "partial" || run.status === "canceled") ? (
                 <form method="post" action={`/runs/${run.id}/retry`} style="display:inline;margin-left:0.75rem">
                   <button class="link">retry</button>
                 </form>
               ) : null}
-              {run.status === "queued" || run.status === "starting" || run.status === "running" ? (
+              {role === "admin" && (run.status === "queued" || run.status === "starting" || run.status === "running") ? (
                 <form method="post" action={`/runs/${run.id}/cancel`} style="display:inline;margin-left:0.75rem">
                   <button class="link">cancel</button>
                 </form>
@@ -131,9 +98,9 @@ export function RunsPage({ runs, page, hasNext }: RunsPageProps) {
   );
 }
 
-export function RunDetailPage({ run, videoUrl }: { run: Run; videoUrl: string }) {
+export function RunDetailPage({ run, videoUrl, role }: RunDetailPageProps) {
   return (
-    <Layout title={`Run ${run.id}`}>
+    <Layout title={`Run ${run.id}`} role={role}>
       <h1>
         {run.repo}#{run.prNumber} — <StatusCell status={run.status} />
       </h1>
