@@ -24,11 +24,13 @@ test("native forms need either a matching Origin or same-origin Fetch Metadata",
 });
 
 test("Docker form origins match the request Host, not Next's listening address", () => {
-  const headers = { host: "croft.test:8080", origin: "http://croft.test:8080" };
-  const request = new Request("http://0.0.0.0:3000/settings", { method: "POST", headers });
-  assert.equal(isCsrfRequest(request), false);
-  request.headers.set("origin", "http://other.test");
-  assert.equal(isCsrfRequest(request), true);
+  for (const host of ["croft.test", "croft.test:8080"]) {
+    const headers = { host, origin: `https://${host}` };
+    const request = new Request("https://0.0.0.0:3000/settings", { method: "POST", headers });
+    assert.equal(isCsrfRequest(request), false);
+    request.headers.set("origin", "https://other.test");
+    assert.equal(isCsrfRequest(request), true);
+  }
 });
 
 test("reads and non-form requests retain their CSRF exemption", () => {

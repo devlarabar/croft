@@ -22,14 +22,16 @@ test("public endpoints stay public while all unknown dashboard paths require sig
 
 test("anonymous redirects use an absolute public URL rather than the container address", async () => {
   delete process.env.DEV_NO_AUTH;
-  for (const method of ["GET", "HEAD", "POST"]) {
-    const request = new NextRequest("https://0.0.0.0:3000/runs?page=2", {
-      method, headers: { host: "croft.test:8443" },
-    });
-    const response = await proxy(request);
-    assert.equal(response.status, 302);
-    assert.equal(response.headers.get("location"), "https://croft.test:8443/login");
-    assert.equal(response.headers.get("cache-control"), "private, no-store");
+  for (const host of ["croft.test", "croft.test:8443"]) {
+    for (const method of ["GET", "HEAD", "POST"]) {
+      const request = new NextRequest("https://0.0.0.0:3000/runs?page=2", {
+        method, headers: { host },
+      });
+      const response = await proxy(request);
+      assert.equal(response.status, 302);
+      assert.equal(response.headers.get("location"), `https://${host}/login`);
+      assert.equal(response.headers.get("cache-control"), "private, no-store");
+    }
   }
 });
 
