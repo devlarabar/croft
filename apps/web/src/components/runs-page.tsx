@@ -1,62 +1,45 @@
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { clsx } from "clsx";
 import { Layout } from "../layout";
+import { runFilterSchema } from "../run-pagination";
 import type { RunsPageProps } from "./runs.types";
-import { StatusCell } from "./status-cell";
-import { CopyButton } from "./copy-button";
-import { RunActions } from "./run-actions";
+import { RunRow } from "./run-row";
 import { DataTable } from "./data-table";
+import { ButtonLink } from "./button";
+import { PageHeader } from "./page-header";
 
-export function RunsPage({ runs, page, hasNext, role }: RunsPageProps) {
+export function RunsPage({ runs, page, pageTotal, total, status, role }: RunsPageProps) {
   return (
     <Layout title="Runs" role={role}>
-      <div className="page-head">
-        <h1>Runs</h1>
-        {role === "admin" ? <a className="btn" href="/new">New run</a> : null}
-      </div>
-      <DataTable>
-        <tr>
-          <th>Pull request</th>
-          <th>Mode</th>
-          <th>Status</th>
-          <th>Timing</th>
-          <th></th>
-        </tr>
-        {runs.map((run) => (
-          <tr key={run.id}>
-            <td>
-              <a href={`https://github.com/${run.repo}/pull/${run.prNumber}`}>
-                {run.repo}#{run.prNumber}
-              </a>
-              <div className="mono muted">{run.model}</div>
-            </td>
-            <td className="mono">{run.mode}</td>
-            <td>
-              <StatusCell status={run.status} />
-              {run.error ? (
-                <details>
-                  <summary className="mono muted">error</summary>
-                  <CopyButton text={run.error} />
-                  <div className="mono muted">{run.error}</div>
-                </details>
-              ) : null}
-            </td>
-            <td className="mono">
-              {run.createdAt.toISOString().slice(0, 16).replace("T", " ")}
-              {run.finishedAt ? ` → ${run.finishedAt.toISOString().slice(11, 16)}` : ""}
-            </td>
-            <td>
-              <a href={`/runs/${run.id}`}>video</a>
-              <RunActions run={run} role={role} />
-            </td>
-          </tr>
+      <PageHeader title="Runs" description="Reviews and test runs Croft has done. Videos are kept for 60 days.">
+        {role === "admin" ? <ButtonLink href="/new"><Plus size={16} aria-hidden="true" />New run</ButtonLink> : null}
+      </PageHeader>
+      <div className="filters" aria-label="Filter runs by status">
+        {runFilterSchema.options.map((filter) => (
+          <ButtonLink key={filter} href={`/runs?status=${filter}`} className={clsx("small", { secondary: filter !== status })} aria-current={filter === status ? "true" : undefined}>
+            {filter === "all" ? "alle" : filter}
+          </ButtonLink>
         ))}
-      </DataTable>
-      <p>
-        {page > 1 ? <a href={`/runs?page=${page - 1}`}>← Previous</a> : null}
-        {page > 1 ? " · " : null}
-        Page {page}
-        {hasNext ? " · " : null}
-        {hasNext ? <a href={`/runs?page=${page + 1}`}>Next →</a> : null}
-      </p>
+        <span className="caption muted">{total} runs</span>
+      </div>
+      <div>
+        <DataTable className="runs-table">
+          <thead><tr><th>Pull request</th><th>Mode</th><th>Status</th><th>Timing</th><th>Artifacts</th></tr></thead>
+          <tbody>
+            {runs.map((run) => <RunRow key={run.id} run={run} role={role} />)}
+            {runs.length === 0 ? <tr><td colSpan={5}>No runs match this filter.</td></tr> : null}
+          </tbody>
+          <tfoot><tr><td colSpan={5}>
+            <div className="pagination">
+              <span className="caption muted">Side {page} av {pageTotal}</span>
+              <div className="flex gap-2">
+                <ButtonLink className="secondary small" href={page > 1 ? `/runs?status=${status}&page=${page - 1}` : undefined} aria-disabled={page === 1}><ChevronLeft size={16} aria-hidden="true" />Forrige</ButtonLink>
+                <ButtonLink className="secondary small" href={page < pageTotal ? `/runs?status=${status}&page=${page + 1}` : undefined} aria-disabled={page === pageTotal}>Neste<ChevronRight size={16} aria-hidden="true" /></ButtonLink>
+              </div>
+            </div>
+          </td></tr></tfoot>
+        </DataTable>
+      </div>
     </Layout>
   );
 }

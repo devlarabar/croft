@@ -1,5 +1,7 @@
-import type { PropsWithChildren } from "react";
+import type { ComponentProps } from "react";
 
-export function DataTable({ children }: PropsWithChildren) {
-  return <table className="runs-table"><tbody>{children}</tbody></table>;
+type DataTableProps = ComponentProps<"table">;
+
+export function DataTable({ children, className, ...props }: DataTableProps) {
+  return <div className="table-card"><table {...props} className={className}>{children}</table></div>;
 }

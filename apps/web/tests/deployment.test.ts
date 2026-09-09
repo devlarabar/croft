@@ -41,6 +41,7 @@ before(async () => {
   await db.insert(schema.runs).values(runIds.map<RunInsert>((id, index) => ({
     id, repo: "smoke/repo", prNumber: index + 1, mode: "test", providerId: "openai", model: "test-model",
     credentialId: randomUUID(), createdAt: new Date(1_700_000_000_000 + index * 1000), flavourText: "I'm inspecting this PR",
+    status: index === 25 ? "passed" : "queued",
   })));
 });
 
@@ -78,10 +79,18 @@ test("all dashboard pages, pagination, and HEAD requests render without external
   }
   const first = await (await request("/runs")).text();
   const second = await (await request("/runs?page=2")).text();
-  assert.equal(first.match(/href="https:\/\/github.com\/smoke\/repo\/pull\//g)?.length, 25);
-  assert.equal(second.match(/href="https:\/\/github.com\/smoke\/repo\/pull\//g)?.length, 1);
-  assert.ok(first.includes('href="/runs?page=2"'));
-  assert.ok(!second.includes('href="/runs?page=3"'));
+  const third = await (await request("/runs?page=3")).text();
+  assert.equal(first.match(/href="https:\/\/github.com\/smoke\/repo\/pull\//g)?.length, 12);
+  assert.equal(second.match(/href="https:\/\/github.com\/smoke\/repo\/pull\//g)?.length, 12);
+  assert.equal(third.match(/href="https:\/\/github.com\/smoke\/repo\/pull\//g)?.length, 2);
+  assert.ok(first.includes('href="/runs?status=all&amp;page=2"'));
+  assert.ok(!third.includes('href="/runs?status=all&amp;page=4"'));
+  const passed = await (await request("/runs?status=passed&page=99")).text();
+  assert.equal(passed.match(/href="https:\/\/github.com\/smoke\/repo\/pull\//g)?.length, 1);
+  assert.ok(passed.includes('href="https://github.com/smoke/repo/pull/26"'));
+  assert.ok(!passed.includes('href="/runs?status=passed&amp;page=2"'));
+  const empty = await (await request("/runs?status=failed")).text();
+  assert.ok(empty.includes("No runs match this filter."));
   const head = await request("/runs", "member", { method: "HEAD" });
   assert.equal(head.status, 200);
   assert.equal(await head.text(), "");
@@ -90,7 +99,7 @@ test("all dashboard pages, pagination, and HEAD requests render without external
 test("standalone assets and the existing API docs ship in the image", async () => {
   const css = await request("/styles.css", null);
   assert.equal(css.status, 200);
-  assert.ok((await css.text()).includes("#fbfaf8"));
+  assert.ok((await css.text()).includes("--sidebar: #e8eee3"));
   const favicon = await request("/favicon.ico", null);
   assert.equal(favicon.status, 200);
   assert.equal(favicon.headers.get("content-type"), "image/png");

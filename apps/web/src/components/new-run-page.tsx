@@ -1,6 +1,9 @@
+import { Play } from "lucide-react";
 import { Layout } from "../layout";
 import type { OpenPr } from "../data/open-prs";
 import { Button } from "./button";
+import { Card } from "./card";
+import { PageHeader } from "./page-header";
 
 interface NewRunPageProps {
   prs: OpenPr[];
@@ -10,49 +13,32 @@ interface NewRunPageProps {
 export function NewRunPage({ prs, error }: NewRunPageProps) {
   return (
     <Layout title="New run">
-      <h1>New run</h1>
-      <p className="sub">Pick a pull request and Croft takes it from there.</p>
-      {error ? <p className="text-error">{error}</p> : null}
+      <PageHeader title="New run" description="Pick a pull request and Croft takes it from there." />
+      {error ? <p className="text-error" role="alert">{error}</p> : null}
       {prs.length === 0 ? (
-        <p>No open PRs across the allow-listed repos (configure repos in Settings).</p>
+        <p>No open PRs across the allow-listed repos (configure repos in <a href="/settings">Settings</a>).</p>
       ) : (
-        <form method="post" action="/runs">
-          <p>
-            <label>
-              Pull request<br />
+        <Card>
+          <form method="post" action="/runs" className="flex flex-col gap-5">
+            <label>Pull request
               <select name="pr">
-                {prs.map((pr) => (
-                  <option key={`${pr.repo}#${pr.number}`} value={`${pr.repo}#${pr.number}`}>
-                    {pr.repo}#{pr.number} — {pr.title}
-                  </option>
-                ))}
+                {prs.map((pr) => <option key={`${pr.repo}#${pr.number}`} value={`${pr.repo}#${pr.number}`}>{pr.repo}#{pr.number} — {pr.title}</option>)}
               </select>
             </label>
-          </p>
-          <p>
-            <label>
-              Mode<br />
-              <select name="mode">
-                <option value="test">test</option>
-                <option value="review">review</option>
-              </select>
+            <label className="max-w-50">Mode
+              <select name="mode"><option value="test">test</option><option value="review">review</option></select>
             </label>
-          </p>
-          <p>
-            <label>
-              <input type="checkbox" name="freshPlan" /> Generate a fresh test plan from the diff
-              (ignore any plan in the PR body)
+            <label><input type="checkbox" name="freshPlan" /><span>Generate a fresh test plan from the diff (ignore any plan in the PR body)</span></label>
+            <label>Preview URL override
+              <input name="previewUrl" type="url" placeholder="https://preview.example.com" aria-describedby="preview-hint" />
+              <span id="preview-hint" className="caption muted">Optional — otherwise discovered from the PR's "preview deployment" comment.</span>
             </label>
-          </p>
-          <p>
-            <label>
-              Preview URL override (optional — otherwise discovered from the PR's "preview deployment" comment)
-              <br />
-              <input name="previewUrl" type="url" size={60} />
-            </label>
-          </p>
-          <Button>Run</Button>
-        </form>
+            <div className="form-row">
+              <Button><Play size={16} aria-hidden="true" />Run</Button>
+              <span className="caption muted">Croft posts the result back on the PR when it finishes.</span>
+            </div>
+          </form>
+        </Card>
       )}
     </Layout>
   );

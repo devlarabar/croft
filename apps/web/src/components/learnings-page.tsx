@@ -5,6 +5,9 @@ import { fmtDate } from "../format-date";
 import { DataTable } from "./data-table";
 import { Fieldset } from "./fieldset";
 import { Button } from "./button";
+import { Save } from "lucide-react";
+import { PageHeader } from "./page-header";
+import { Notice } from "./notice";
 
 interface LearningsPageProps {
   repos: string[];
@@ -19,28 +22,25 @@ export function LearningsPage({
 }: LearningsPageProps) {
   return (
     <Layout title="Learnings">
-      <h1>Learnings</h1>
-      <p className="sub">
+      <PageHeader title="Learnings" description={<>
         Rules Croft applies when reviewing and answering questions about a repo. Max {LEARNING_MAX_CHARS}{" "}
         characters each, {LEARNING_CAP} per repo. Clear a row to delete it. Croft can add one himself: comment{" "}
         <code>@croft add-learning</code> on a PR or in a review thread.
-      </p>
-      {notice ? <p>{notice}</p> : null}
+      </>} />
+      <Notice>{notice}</Notice>
       <form method="post" action="/learnings">
         {repos.map((repo) => {
           const rows = learnings.filter((learning) => learning.repo === repo);
           return (
-            <Fieldset key={repo} legend={`${repo} (${rows.length}/${LEARNING_CAP})`}>
-              <DataTable>
-                <tr>
-                  <th>Learning</th>
-                  <th>Source</th>
-                  <th>Added</th>
-                </tr>
+            <Fieldset key={repo} legend={<strong className="normal-case tracking-normal">{repo}</strong>} annotation={`${rows.length}/${LEARNING_CAP} brukt`}>
+              <div className="learnings-table"><DataTable>
+                <thead className="sr-only"><tr><th>Learning</th><th>Source</th><th>Added</th></tr></thead>
+                <tbody>
                 {rows.map((learning) => (
                   <tr key={learning.id}>
                     <td>
                       <input
+                        aria-label={`Learning for ${repo}`}
                         name={`learning_${learning.id}`}
                         defaultValue={learning.text}
                         maxLength={LEARNING_MAX_CHARS}
@@ -61,6 +61,7 @@ export function LearningsPage({
                   <tr>
                     <td>
                       <input
+                        aria-label={`Add a learning for ${repo}`}
                         name={`new_${repo}`}
                         placeholder="Add a learning"
                         maxLength={LEARNING_MAX_CHARS}
@@ -70,11 +71,12 @@ export function LearningsPage({
                     <td colSpan={2}></td>
                   </tr>
                 ) : null}
-              </DataTable>
+                </tbody>
+              </DataTable></div>
             </Fieldset>
           );
         })}
-        {repos.length === 0 ? <p>Add a repo to the allow-list in Settings first.</p> : <Button>Save</Button>}
+        {repos.length === 0 ? <p>Add a repo to the allow-list in Settings first.</p> : <Button><Save size={16} aria-hidden="true" />Save</Button>}
       </form>
     </Layout>
   );

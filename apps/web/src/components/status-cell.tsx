@@ -5,5 +5,5 @@ interface StatusCellProps {
 }
 
 export function StatusCell({ status }: StatusCellProps) {
-  return <span className={`status-${status}`}>{status}</span>;
+  return <span className={`status status-${status}`}>{status}</span>;
 }

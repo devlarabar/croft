@@ -1,11 +1,14 @@
 import type { DashboardRole, schema } from "@croft/core";
 
 export type Run = typeof schema.runs.$inferSelect;
+export type RunListItem = Pick<Run, "id" | "repo" | "prNumber" | "mode" | "model" | "status" | "error" | "createdAt" | "finishedAt">;
 
 export interface RunsPageProps {
-  runs: Run[];
+  runs: RunListItem[];
   page: number;
-  hasNext: boolean;
+  pageTotal: number;
+  total: number;
+  status: string;
   role: DashboardRole;
 }
 

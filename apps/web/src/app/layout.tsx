@@ -7,7 +7,6 @@ interface RootLayoutProps {
 }
 
 export const dynamic = "force-dynamic";
-export const viewport = { width: undefined, initialScale: undefined };
 
 export default function RootLayout({ children }: RootLayoutProps) {
   return <Document>{children}</Document>;

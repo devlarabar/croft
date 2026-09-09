@@ -2,5 +2,5 @@
 @import "tailwindcss/utilities.css" layer(utilities);
 
 @theme {
-  --color-error: #c04a5e;
+  --color-error: #a83252;
 }
