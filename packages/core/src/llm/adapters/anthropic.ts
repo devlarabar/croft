@@ -72,6 +72,7 @@ export function anthropicRequestBody(req: ChatRequest, system: string | Json[] |
     max_tokens: req.maxTokens ?? 8192,
     ...(system ? { system } : {}),
     messages: toAnthropicMessages(req.messages),
+    ...(req.toolChoice ? { tool_choice: { type: "tool", name: req.toolChoice } } : {}),
     ...(req.tools?.length
       ? {
           tools: req.tools.map((tool) => ({

@@ -33,6 +33,7 @@ export interface ChatRequest {
   system?: string;
   messages: ChatMessage[];
   tools?: ToolDef[];
+  toolChoice?: string;
   maxTokens?: number;
   signal?: AbortSignal;
 }

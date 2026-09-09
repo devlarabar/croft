@@ -95,6 +95,9 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
         stream_options: { include_usage: true },
         max_completion_tokens: req.maxTokens ?? 8192,
         messages: toWireMessages(req.system, req.messages),
+        ...(req.toolChoice
+          ? { tool_choice: { type: "function", function: { name: req.toolChoice } } }
+          : {}),
         ...(req.tools?.length
           ? {
               tools: req.tools.map((tool) => ({

@@ -146,6 +146,7 @@ async function* chatGpt(req: ChatRequest, cred: Credential): AsyncIterable<ChatE
       prompt: toAiPrompt(req.system, req.messages),
       maxOutputTokens: req.maxTokens ?? 8192,
       tools,
+      ...(req.toolChoice ? { toolChoice: { type: "tool" as const, toolName: req.toolChoice } } : {}),
       abortSignal: req.signal,
       providerOptions: {
         openai: { store: false, forceReasoning: true, reasoningEffort: "high" },

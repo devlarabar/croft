@@ -62,6 +62,8 @@ export interface AgentLoopOptions {
   system: string;
   messages: ChatMessage[];
   tools: AgentTool[];
+  completionTool: string;
+  toolChoice?: string;
   toolCallCap?: number;
   deadlineAt?: number;
   onEvent(type: string, payload: unknown): Promise<void>;
@@ -70,7 +72,7 @@ export interface AgentLoopOptions {
 // While the response has tool calls: execute, append results, re-send —
 // with a hard cap on tool calls per run (the real cost bound).
 interface AgentLoopResult {
-  outcome: "done" | "cap_hit" | "deadline_hit";
+  outcome: "done" | "incomplete" | "cap_hit" | "deadline_hit";
   messages: ChatMessage[];
   toolCalls: number;
 }
@@ -80,15 +82,25 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
   const messages = [...opts.messages];
   const byName = new Map(opts.tools.map((tool) => [tool.def.name, tool]));
   let toolCalls = 0;
+  let forcedTurns = 0;
 
   while (true) {
+    if (opts.toolChoice && forcedTurns++ >= 3) return { outcome: "incomplete", messages, toolCalls };
+    if (toolCalls >= cap) return { outcome: "cap_hit", messages, toolCalls };
     if (opts.deadlineAt && Date.now() >= opts.deadlineAt) return { outcome: "deadline_hit", messages, toolCalls };
     const signal = opts.deadlineAt ? AbortSignal.timeout(Math.max(1, opts.deadlineAt - Date.now())) : undefined;
     let turn: Turn;
     try {
       turn = await chatTurn(
         opts.adapter,
-        { model: opts.model, system: opts.system, messages, tools: opts.tools.map((tool) => tool.def), signal },
+        {
+          model: opts.model,
+          system: opts.system,
+          messages,
+          tools: opts.tools.map((tool) => tool.def),
+          toolChoice: opts.toolChoice,
+          signal,
+        },
         opts.cred,
       );
     } catch (err) {
@@ -98,17 +110,32 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
     messages.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls });
     if (turn.usage) await opts.onEvent("usage", turn.usage);
     if (turn.text) await opts.onEvent("assistant_text", { text: turn.text });
-    if (turn.toolCalls.length === 0) return { outcome: "done", messages, toolCalls };
+    if (turn.toolCalls.length === 0) {
+      if (!opts.toolChoice) return { outcome: "incomplete", messages, toolCalls };
+      messages.push({
+        role: "user",
+        content: [{ type: "text", text: `Call \`${opts.completionTool}\` now to submit your result.` }],
+      });
+      continue;
+    }
 
+    let completed = false;
     let capHit = false;
     for (const call of turn.toolCalls) {
-      if (capHit || toolCalls >= cap) {
+      if (completed || capHit || toolCalls >= cap) {
         // Every tool call needs a result message or the next request is invalid.
         capHit = true;
         messages.push({
           role: "tool",
           toolCallId: call.id,
-          content: [{ type: "text", text: "Not executed: tool-call budget cap reached." }],
+          content: [
+            {
+              type: "text",
+              text: completed
+                ? "Not executed: report already submitted."
+                : "Not executed: tool-call budget cap reached.",
+            },
+          ],
         });
         continue;
       }
@@ -117,25 +144,34 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
       const result = await executeTool(byName.get(call.name), call);
       await opts.onEvent("tool_result", {
         name: call.name,
-        result: result.filter((part) => part.type === "text"),
+        result: result.content.filter((part) => part.type === "text"),
       });
-      messages.push({ role: "tool", toolCallId: call.id, content: result });
+      messages.push({ role: "tool", toolCallId: call.id, content: result.content });
+      completed = result.succeeded && call.name === opts.completionTool;
     }
+    if (completed) return { outcome: "done", messages, toolCalls };
     if (capHit) return { outcome: "cap_hit", messages, toolCalls };
   }
 }
 
-async function executeTool(tool: AgentTool | undefined, call: ToolCall): Promise<ContentPart[]> {
-  if (!tool) return [{ type: "text", text: `Unknown tool: ${call.name}` }];
+interface ToolResult {
+  content: ContentPart[];
+  succeeded: boolean;
+}
+
+async function executeTool(tool: AgentTool | undefined, call: ToolCall): Promise<ToolResult> {
+  if (!tool) return { content: [{ type: "text", text: `Unknown tool: ${call.name}` }], succeeded: false };
   const parsed = tool.schema.safeParse(call.args);
-  if (!parsed.success) return [{ type: "text", text: `Invalid arguments: ${parsed.error.message}` }];
+  if (!parsed.success) {
+    return { content: [{ type: "text", text: `Invalid arguments: ${parsed.error.message}` }], succeeded: false };
+  }
   try {
-    return await tool.execute(parsed.data);
+    return { content: await tool.execute(parsed.data), succeeded: true };
   } catch (err) {
     // Browser actions never auto-retry: the model sees the failure and decides.
     // Redacted: tool errors quote commands and URLs, and this text is sent to
     // the model provider.
-    return [{ type: "text", text: redact(`Tool failed: ${(err as Error).message}`) }];
+    return { content: [{ type: "text", text: redact(`Tool failed: ${(err as Error).message}`) }], succeeded: false };
   }
 }
 

@@ -205,13 +205,16 @@ Review it now.`,
     system,
     messages: initial,
     tools: [...repoTools(opts.checkoutDir), docsTool, submitTool],
+    completionTool: "submit_review",
     toolCallCap: opts.toolCallCap,
     deadlineAt: Date.now() + REVIEW_EXPLORATION_MS,
     onEvent: opts.emit,
   });
 
   if (result.outcome !== "done" && !submitted.report) {
-    const reason = result.outcome === "deadline_hit" ? "review time limit" : "tool-call budget cap";
+    let reason = "You stopped without submitting a review.";
+    if (result.outcome === "deadline_hit") reason = "You hit the review time limit.";
+    if (result.outcome === "cap_hit") reason = "You hit the tool-call budget cap.";
     await runAgentLoop({
       adapter: opts.adapter,
       cred: opts.cred,
@@ -224,13 +227,15 @@ Review it now.`,
           content: [
             {
               type: "text",
-              text: `You hit the ${reason}. Call \`submit_review\` now with what you found so far.`,
+              text: `${reason} Call \`submit_review\` now with what you found so far.`,
             },
           ],
         },
       ],
       tools: [submitTool],
-      toolCallCap: 1,
+      completionTool: "submit_review",
+      toolChoice: "submit_review",
+      toolCallCap: 3,
       deadlineAt: Date.now() + FINAL_SUBMISSION_MS,
       onEvent: opts.emit,
     });

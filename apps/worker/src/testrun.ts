@@ -100,7 +100,7 @@ export async function executeTestRun(opts: {
     repoContext: opts.repoContext,
   });
 
-  let outcome: "done" | "cap_hit";
+  let outcome: "done" | "incomplete" | "cap_hit";
   let videoUrl: string | null = null;
   try {
     const initial: ChatMessage[] = [
@@ -113,11 +113,12 @@ export async function executeTestRun(opts: {
       system,
       messages: initial,
       tools,
+      completionTool: "report",
       toolCallCap: opts.toolCallCap,
       onEvent: opts.emit,
     });
     const remainingToolCalls = opts.toolCallCap - result.toolCalls;
-    if (!report && result.outcome === "done" && remainingToolCalls > 0) {
+    if (!report && result.outcome === "incomplete" && remainingToolCalls > 0) {
       result = await runAgentLoop({
         adapter: opts.adapter,
         cred: opts.cred,
@@ -136,6 +137,7 @@ export async function executeTestRun(opts: {
           },
         ],
         tools,
+        completionTool: "report",
         toolCallCap: remainingToolCalls,
         onEvent: opts.emit,
       });
@@ -161,7 +163,9 @@ export async function executeTestRun(opts: {
           },
         ],
         tools: [reportTool],
-        toolCallCap: 1,
+        completionTool: "report",
+        toolChoice: "report",
+        toolCallCap: 3,
         onEvent: opts.emit,
       });
     }
