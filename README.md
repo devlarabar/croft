@@ -109,6 +109,31 @@ The Settings comment-trigger allow-list is separate from dashboard access.
 Existing sessions must sign in again after this update. `DEV_NO_AUTH=1` retains
 full admin access for local development only.
 
+### Run logs and event encryption
+
+Admins can open **View logs** from a run row or its video page. The viewer
+shows stored agent events, newest first, with expandable payloads and 50 events
+per page; container stdout/stderr still lives in Scaleway. Members cannot
+access event logs. Payloads can contain browser inputs and application data;
+do not share raw logs or exported archives publicly.
+
+New event payloads use AES-256-GCM with `TOKEN_ENC_KEY`. The existing JSONB
+column stores ciphertext as a JSON string. Deploy the web reader first, then
+the worker writer, and let workers on the old version finish. With production
+`DATABASE_URL` and `TOKEN_ENC_KEY` already exported, backfill historical rows:
+
+```sh
+pnpm --filter @croft/core build
+pnpm --filter @croft/core encrypt-events
+```
+
+The backfill is resumable and processes 100 rows at a time. Existing plaintext
+rows remain readable until backfilled; deploy alone does not encrypt them.
+Old backups and previously downloaded exports still contain their original
+payloads. Admin exports and Q&A decrypt events on the server. This protects
+`events.payload`, not run reports, screenshots, videos, or container logs.
+Rolling back to a reader predating encryption will break event consumers.
+
 ### Video access rollout
 
 Run the database migration and deploy both web and worker. New video uploads
@@ -151,8 +176,9 @@ removed on exit; it does not use the development or production database.
 
 ## Key rotation
 
-Re-encrypt all stored secrets (credentials, preview-login passwords) under a
-new `TOKEN_ENC_KEY`:
+Stop new runs and wait for active workers to finish before rotating keys.
+Re-encrypt credentials, preview-login passwords, and encrypted event payloads
+under a new `TOKEN_ENC_KEY`:
 
 ```sh
 DATABASE_URL=<prod> TOKEN_ENC_KEY=<old> NEW_TOKEN_ENC_KEY=<new> \
