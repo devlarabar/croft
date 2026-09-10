@@ -7,6 +7,7 @@ import { ButtonLink } from "./button";
 import { Card } from "./card";
 import { PageHeader } from "./page-header";
 import { StatusCell } from "./status-cell";
+import { RunLogExport } from "./run-log-export";
 
 interface RunLogsPageProps {
   run: Run;
@@ -29,6 +30,7 @@ export function RunLogsPage({ run, events, nextCursor }: RunLogsPageProps) {
         <p className="caption muted">Run ID: {run.id}{run.jobRunId ? ` · Scaleway job: ${run.jobRunId}` : ""}</p>
         {run.error ? <pre>{run.error}</pre> : null}
       </Card>
+      <RunLogExport runId={run.id} />
       <p className="sub">Newest events first. Payloads may contain credentials or application data; only admins can view them. These are agent events, not container logs.</p>
       <Card>
         {events.length === 0 ? <p>No events recorded for this page.</p> : events.map((event) => (

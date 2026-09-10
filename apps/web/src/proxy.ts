@@ -33,7 +33,7 @@ export async function proxy(request: NextRequest): Promise<Response> {
         const target = request.nextUrl.clone();
         target.pathname = `/api/forms${path}`;
         response = NextResponse.rewrite(target, { request: { headers } });
-      } else if ((read && (GET_PATHS.has(path) || /^\/runs\/[^/]+(?:\/(?:video|logs))?$/.test(path)))
+      } else if ((read && (GET_PATHS.has(path) || /^\/runs\/[^/]+(?:\/(?:video|logs(?:\.json)?))?$/.test(path)))
         || (request.method === "POST" && (POST_PATHS.has(path) || /^\/runs\/[^/]+\/(retry|cancel)$/.test(path)))) {
         response = NextResponse.next({ request: { headers } });
       } else {

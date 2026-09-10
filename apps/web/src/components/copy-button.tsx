@@ -8,6 +8,6 @@ interface CopyButtonProps {
 }
 
 export function CopyButton({ text }: CopyButtonProps) {
-  const { copied, failed, copy } = useCopy(text);
-  return <div><Button type="button" className="copy" onClick={copy}>{copied ? "Kopiert" : "Kopier"}</Button>{failed ? <p role="alert">Could not copy. Try again or select the text manually.</p> : null}</div>;
+  const { copied, failed, pending, copy } = useCopy();
+  return <div><Button type="button" className="copy" disabled={pending} onClick={() => copy(text)}>{copied ? "Kopiert" : "Kopier"}</Button>{failed ? <p role="alert">Could not copy. Try again or select the text manually.</p> : null}</div>;
 }
