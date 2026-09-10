@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { z } from "zod";
 import type { OAuthConfig } from "./types.js";
 
 export interface Pkce {
@@ -31,18 +32,21 @@ export interface TokenResponse {
   expiresAt?: Date;
 }
 
-async function tokenRequest(tokenUrl: string, body: Record<string, string>): Promise<TokenResponse> {
-  const res = await fetch(tokenUrl, {
+const tokenResponseSchema = z.object({
+  access_token: z.string().min(1),
+  refresh_token: z.string().min(1).optional(),
+  expires_in: z.number().positive().optional(),
+});
+
+async function tokenRequest(cfg: OAuthConfig, body: Record<string, string>): Promise<TokenResponse> {
+  const form = cfg.tokenEncoding === "form";
+  const res = await fetch(cfg.tokenUrl, {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
+    headers: { "content-type": form ? "application/x-www-form-urlencoded" : "application/json" },
+    body: form ? new URLSearchParams(body) : JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`token endpoint ${res.status}: ${await res.text()}`);
-  const json = (await res.json()) as {
-    access_token: string;
-    refresh_token?: string;
-    expires_in?: number;
-  };
+  if (!res.ok) throw new Error(`OAuth token endpoint returned ${res.status}. Reconnect from Models.`);
+  const json = tokenResponseSchema.parse(await res.json());
   return {
     accessToken: json.access_token,
     refreshToken: json.refresh_token,
@@ -50,10 +54,19 @@ async function tokenRequest(tokenUrl: string, body: Record<string, string>): Pro
   };
 }
 
+export function parseOAuthRedirect(pasted: string, cfg: OAuthConfig, state: string): string | null {
+  if (!URL.canParse(pasted.trim())) return null;
+  const url = new URL(pasted.trim());
+  const redirect = new URL(cfg.redirectUri);
+  if (url.origin !== redirect.origin || url.pathname !== redirect.pathname ||
+      url.searchParams.get("state") !== state || url.searchParams.has("error")) return null;
+  return url.searchParams.get("code") || null;
+}
+
 // Code-paste flows return "code#state" from the provider's callback page.
 export function exchangeCode(cfg: OAuthConfig, pasted: string, verifier: string): Promise<TokenResponse> {
   const [code, state] = pasted.trim().split("#");
-  return tokenRequest(cfg.tokenUrl, {
+  return tokenRequest(cfg, {
     grant_type: "authorization_code",
     code: code!,
     ...(state ? { state } : {}),
@@ -64,7 +77,7 @@ export function exchangeCode(cfg: OAuthConfig, pasted: string, verifier: string)
 }
 
 export function refreshAccessToken(cfg: OAuthConfig, refreshToken: string): Promise<TokenResponse> {
-  return tokenRequest(cfg.tokenUrl, {
+  return tokenRequest(cfg, {
     grant_type: "refresh_token",
     refresh_token: refreshToken,
     client_id: cfg.clientId,

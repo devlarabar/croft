@@ -1,7 +1,16 @@
+import type { ProviderAdapter } from "../types.js";
+import { codexChat, codexOAuth } from "./openai-codex.js";
 import { OpenAiCompatibleAdapter } from "./openai-compatible.js";
 
-export const openai = new OpenAiCompatibleAdapter(
+const apiKey = new OpenAiCompatibleAdapter(
   "openai",
-  ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5", "gpt-4.1", "gpt-4o"],
+  ["gpt-6", "gpt-5.6", "gpt-5.5", "gpt-5.4", "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5", "gpt-4.1", "gpt-4o"],
   "https://api.openai.com/v1",
 );
+
+export const openai: ProviderAdapter = {
+  id: apiKey.id,
+  models: apiKey.models,
+  oauth: codexOAuth,
+  chat: (req, cred) => cred.kind === "oauth" ? codexChat(req, cred) : apiKey.chat(req, cred),
+};

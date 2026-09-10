@@ -57,6 +57,9 @@ export interface OAuthConfig {
   redirectUri: string;
   // true: provider shows the code on its own callback page; user pastes it.
   codePaste?: boolean;
+  // OpenAI redirects to localhost; hosted callers paste the complete callback URL.
+  redirectPaste?: boolean;
+  tokenEncoding?: "form";
 }
 
 export interface ProviderAdapter {

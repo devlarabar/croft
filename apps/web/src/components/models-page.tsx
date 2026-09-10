@@ -49,6 +49,7 @@ export function ModelsPage(props: ModelsPageProps) {
         return (
         <Fieldset key={provider.id} legend={provider.id} annotation={state}>
           <p>{provider.models.join(", ")}</p>
+          {provider.id === "openai" ? <p>ChatGPT OAuth: select a model available to your account and the saved OAuth credential, then Set active. Requires ChatGPT access to Codex.</p> : null}
           <form method="post" action="/models/credential">
             <input type="hidden" name="providerId" defaultValue={provider.id} />
             <input
