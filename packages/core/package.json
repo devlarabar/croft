@@ -12,6 +12,7 @@
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "rotate-key": "node dist/rotate-key.js",
+    "encrypt-events": "node dist/encrypt-events.js",
     "private-videos": "node dist/private-videos.js"
   },
   "dependencies": {

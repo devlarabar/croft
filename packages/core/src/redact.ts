@@ -1,6 +1,4 @@
-// A secret must never reach the database, the dashboard, or container logs:
-// git and provider SDKs put credentials into their error text, and those
-// strings get stored and displayed. Applied at every persist/log boundary.
+// Redacts recognizable GitHub tokens and credentials embedded in URLs.
 export function redact(text: string): string {
   return text
     .replace(/gh[posur]_[A-Za-z0-9]{20,}/g, "[redacted]")

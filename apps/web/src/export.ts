@@ -1,7 +1,7 @@
 import { Readable } from "node:stream";
 import archiver from "archiver";
 import { inArray, lt } from "drizzle-orm";
-import { db, deleteArtifacts, getArtifact, listArtifactKeys, schema } from "@croft/core";
+import { db, decryptEventPayload, deleteArtifacts, getArtifact, listArtifactKeys, schema } from "@croft/core";
 
 function appendAndWait(archive: archiver.Archiver, source: Readable | string, name: string): Promise<void> {
   return new Promise((resolve) => {
@@ -23,7 +23,7 @@ export async function exportZip(before: Date): Promise<ReadableStream> {
   void (async () => {
     try {
       await appendAndWait(archive, runs.map((run) => JSON.stringify(run)).join("\n"), `${root}/runs.jsonl`);
-      await appendAndWait(archive, events.map((event) => JSON.stringify(event)).join("\n"), `${root}/events.jsonl`);
+      await appendAndWait(archive, events.map((event) => JSON.stringify({ ...event, payload: decryptEventPayload(event.payload) })).join("\n"), `${root}/events.jsonl`);
       for (const id of runIds) {
         for (const key of await listArtifactKeys(`${id}/`)) {
           // The 60-day lifecycle rule may have deleted the object already.

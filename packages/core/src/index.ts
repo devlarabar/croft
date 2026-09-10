@@ -6,6 +6,7 @@ export * from "./config.js";
 export * from "./learnings.js";
 export * from "./s3.js";
 export * from "./events.js";
+export * from "./event-payload.js";
 export * from "./github.js";
 export * from "./testplan.js";
 export * from "./diff.js";

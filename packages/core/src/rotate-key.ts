@@ -1,4 +1,5 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
+import { z } from "zod";
 import { decrypt, encrypt } from "./crypto.js";
 import { db, schema } from "./db/client.js";
 
@@ -51,6 +52,29 @@ if (cfg) {
   }
   if (changed) {
     await db.update(schema.config).set({ previewLogins: cfg.previewLogins }).where(eq(schema.config.id, cfg.id));
+  }
+}
+
+interface EventCursor {
+  runId: string;
+  seq: number;
+}
+
+let cursor: EventCursor | undefined;
+while (true) {
+  const rows = await db.select({ runId: schema.events.runId, seq: schema.events.seq, payload: schema.events.payload })
+    .from(schema.events).where(and(
+      sql`jsonb_typeof(${schema.events.payload}) = 'string'`,
+      cursor ? sql`(${schema.events.runId}, ${schema.events.seq}) > (${cursor.runId}::uuid, ${cursor.seq}::integer)` : undefined,
+    )).orderBy(schema.events.runId, schema.events.seq).limit(100);
+  if (!rows.length) break;
+  for (const row of rows) {
+    const next = reencrypt(`event ${row.runId}/${row.seq}`, z.string().parse(row.payload));
+    if (next) {
+      await db.update(schema.events).set({ payload: next })
+        .where(and(eq(schema.events.runId, row.runId), eq(schema.events.seq, row.seq)));
+    }
+    cursor = row;
   }
 }
 
