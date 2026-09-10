@@ -6,7 +6,7 @@ import { Layout } from "./layout";
 
 const runPath = "/runs/9fe4d6f2-c580-4acf-94c3-c5e5a994ccdb";
 const viewPaths = ["/", "/runs", runPath, `${runPath}/video`];
-const adminPaths = ["/new", "/models", "/models/credential", "/models/active", "/chat", "/settings",
+const adminPaths = [`${runPath}/logs`, "/new", "/models", "/models/credential", "/models/active", "/chat", "/settings",
   "/users", "/learnings", "/export", "/api/export", "/api/purge", "/credcheck", "/keyfp",
   "/oauth/start", "/oauth/callback", "/oauth/paste", "/api/docs", "/api/openapi.json", "/future-route"];
 

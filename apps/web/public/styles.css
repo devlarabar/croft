@@ -157,6 +157,11 @@ button.status:hover { filter: brightness(0.97); }
 .learnings-table .table-card { border: 0; border-radius: 0; }
 .notice { position: fixed; right: 24px; bottom: 24px; z-index: 10; display: flex; align-items: center; gap: 10px; padding: 12px 18px; background: white; border: 1px solid var(--hair); border-radius: 999px; max-width: calc(100vw - 48px); }
 .notice::before { content: ""; width: 7px; height: 7px; flex: none; border-radius: 999px; background: var(--success-text); }
+.run-event + .run-event { border-top: 1px solid var(--divider); padding-top: 16px; }
+.run-event summary { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; min-height: 32px; }
+.run-event summary time { margin-left: auto; }
+.run-event[open] summary > svg { transform: rotate(90deg); }
+.run-event pre { margin-top: 12px; overflow-wrap: anywhere; }
 video { max-width: 100%; border-radius: 12px; }
 pre { background: #f2f2ee; padding: 24px; border: 1px solid var(--hair); border-radius: var(--radius-card); overflow-x: auto; white-space: pre-wrap; }
 

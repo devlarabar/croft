@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { after, before, test } from "node:test";
 import { Webhooks } from "@octokit/webhooks";
-import { db, decrypt, getConfig, schema, type DashboardRole } from "@croft/core";
+import { db, decrypt, eventWriter, getConfig, listEvents, schema, type DashboardRole } from "@croft/core";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { sessionUser, setOAuthState, setSession } from "../src/session";
@@ -94,6 +94,41 @@ test("all dashboard pages, pagination, and HEAD requests render without external
   const head = await request("/runs", "member", { method: "HEAD" });
   assert.equal(head.status, 200);
   assert.equal(await head.text(), "");
+});
+
+test("run logs decrypt only for admins, paginate, and stay scoped to the run", async () => {
+  const emit = eventWriter(runId);
+  for (let seq = 1; seq <= 51; seq++) await emit("assistant_text", { text: `event-${String(seq).padStart(2, "0")}-end` });
+  const stored = await db.select().from(schema.events).where(eq(schema.events.runId, runId));
+  assert.equal(stored.length, 51);
+  assert.ok(stored.every((event) => typeof event.payload === "string"));
+  assert.ok(!JSON.stringify(stored).includes("event-01-end"));
+  assert.deepEqual((await listEvents(runId))[0]?.payload, { text: "event-01-end" });
+  await db.insert(schema.events).values({ runId, seq: 52, type: "assistant_text", payload: { text: "legacy-event" } });
+  const otherRunId = z.uuid().parse(runIds[1]);
+  await eventWriter(otherRunId)("assistant_text", { text: "other-run-event" });
+  const path = `/runs/${runId}/logs`;
+  const response = await request(path);
+  const latest = await response.text();
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("cache-control"), "private, no-store");
+  assert.ok(latest.includes("legacy-event"));
+  assert.ok(latest.includes("event-51-end"));
+  assert.ok(!latest.includes("event-01-end"));
+  assert.ok(!latest.includes("other-run-event"));
+  assert.ok(latest.includes(`href="${path}?before=3"`));
+  const older = await (await request(`${path}?before=3`)).text();
+  assert.ok(older.includes("event-01-end"));
+  assert.ok(!older.includes("event-51-end"));
+  assert.ok(!older.includes("Older events"));
+  for (const role of ["member", "user"] as const) {
+    const denied = await request(path, role);
+    assert.equal(denied.status, 403);
+    assert.ok(!(await denied.text()).includes("legacy-event"));
+  }
+  assert.equal((await request(path, null)).status, 302);
+  assert.equal((await request(`${path}?before=bad`)).status, 404);
+  assert.equal((await request(`/runs/${randomUUID()}/logs`)).status, 404);
 });
 
 test("standalone assets and the existing API docs ship in the image", async () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, Play } from "lucide-react";
+import { ChevronRight, FileText, Play } from "lucide-react";
 import type { DashboardRole } from "@croft/core";
 import type { RunListItem } from "./runs.types";
 import { StatusCell } from "./status-cell";
@@ -39,6 +39,7 @@ export function RunRow({ run, role }: RunRowProps) {
         </td>
         <td><div className="artifacts">
           <ButtonLink className="icon-button" href={`/runs/${run.id}`} aria-label="View video" title="View video"><Play size={15} aria-hidden="true" /></ButtonLink>
+          {role === "admin" ? <ButtonLink className="icon-button" href={`/runs/${run.id}/logs`} aria-label="View logs" title="View logs"><FileText size={15} aria-hidden="true" /></ButtonLink> : null}
           <RunActions run={run} role={role} />
         </div></td>
       </tr>
