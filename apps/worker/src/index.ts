@@ -217,7 +217,7 @@ async function main() {
     password: decrypt(login.encryptedPassword),
     loginUrl: login.loginUrl,
   }));
-  const { status, report, screenshots } = await executeTestRun({
+  const { status, report, screenshots, error } = await executeTestRun({
     runId: RUN_ID,
     prNumber: run.prNumber,
     previewUrl: PREVIEW_URL,
@@ -231,7 +231,6 @@ async function main() {
     emit,
   });
 
-  const error = report ? null : "agent finished without submitting a report";
   await setStatus(status, { report, error, finishedAt: new Date() });
 
   // The check only fails when the run itself errors; failed/partial/cap_hit

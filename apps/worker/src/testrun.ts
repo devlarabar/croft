@@ -18,6 +18,8 @@ const reportSchema = z.object({
       status: z.enum(["pass", "fail", "not_reached"]),
       notes: z.string().optional(),
       screenshots: z.array(z.string()).optional(),
+    }).refine((step) => step.status !== "not_reached" || Boolean(step.notes?.trim()), {
+      message: "Skipped steps must name the specific observed blocker.", path: ["notes"],
     }),
   ),
 });
@@ -61,7 +63,7 @@ const reportToolDef = {
   },
 };
 
-export async function executeTestRun(opts: {
+interface TestRunOptions {
   runId: string;
   prNumber?: number;
   previewUrl: string;
@@ -74,15 +76,28 @@ export async function executeTestRun(opts: {
   toolCallCap: number;
   emit(type: string, payload: unknown, artifactKey?: string): Promise<void>;
   saveArtifact?: SaveArtifact;
-}): Promise<{ status: RunStatus; report: RunReport | null; screenshots: Screenshot[] }> {
+}
+
+interface TestRunResult {
+  status: RunStatus;
+  report: RunReport | null;
+  screenshots: Screenshot[];
+  error: string | null;
+}
+
+interface SubmittedReport {
+  report: RunReport | null;
+}
+
+export async function executeTestRun(opts: TestRunOptions): Promise<TestRunResult> {
   const previewPostgresTool = opts.prNumber ? makePreviewPostgresTool(opts.prNumber) : null;
   const session = await openBrowserSession(opts.runId, opts.saveArtifact);
-  let report: RunReport | null = null;
+  const submitted: SubmittedReport = { report: null };
   const reportTool: AgentTool = {
     def: reportToolDef,
     schema: reportSchema,
     async execute(args) {
-      report = args as RunReport;
+      submitted.report = reportSchema.parse(args);
       return [{ type: "text", text: "Report recorded." }];
     },
   };
@@ -100,13 +115,14 @@ export async function executeTestRun(opts: {
     repoContext: opts.repoContext,
   });
 
-  let outcome: "done" | "incomplete" | "cap_hit";
+  let outcome: "done" | "incomplete" | "cap_hit" | "deadline_hit";
+  let error: string | null = null;
   let videoUrl: string | null = null;
   try {
     const initial: ChatMessage[] = [
       { role: "user", content: [{ type: "text", text: "Begin. Execute the test plan now." }] },
     ];
-    let result = await runAgentLoop({
+    const result = await runAgentLoop({
       adapter: opts.adapter,
       cred: opts.cred,
       model: opts.model,
@@ -117,34 +133,13 @@ export async function executeTestRun(opts: {
       toolCallCap: opts.toolCallCap,
       onEvent: opts.emit,
     });
-    const remainingToolCalls = opts.toolCallCap - result.toolCalls;
-    if (!report && result.outcome === "incomplete" && remainingToolCalls > 0) {
-      result = await runAgentLoop({
-        adapter: opts.adapter,
-        cred: opts.cred,
-        model: opts.model,
-        system,
-        messages: [
-          ...result.messages,
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "You stopped before completing the test plan. Continue from the current state, attempt every remaining step, then call `report`.",
-              },
-            ],
-          },
-        ],
-        tools,
-        completionTool: "report",
-        toolCallCap: remainingToolCalls,
-        onEvent: opts.emit,
-      });
-    }
-    outcome = result.outcome === "deadline_hit" ? "cap_hit" : result.outcome;
+    outcome = result.outcome;
+    if (outcome === "incomplete") error = "Croft ended browser execution because the model stopped using tools after repeated continuation requests.";
+    if (outcome === "cap_hit") error = "Croft ended browser execution because the tool-call budget was reached.";
+    if (outcome === "deadline_hit") error = "Croft ended browser execution because the time limit was reached.";
 
-    if (!report) {
+    if (!submitted.report) {
+      await opts.emit("test_run_phase", { phase: "report_collection", reason: outcome });
       await runAgentLoop({
         adapter: opts.adapter,
         cred: opts.cred,
@@ -157,7 +152,7 @@ export async function executeTestRun(opts: {
             content: [
               {
                 type: "text",
-                text: "You stopped without submitting a report. Call `report` now with results observed so far; mark unvisited steps as not_reached.",
+                text: `${error} Browser tools have now been removed by Croft solely to collect the final report. This is not evidence of a browser crash. Call \`report\` with observed results; mark unvisited steps as not_reached and state the concrete blocker or the execution stop reason above, not an unspecified interruption.`,
               },
             ],
           },
@@ -174,10 +169,17 @@ export async function executeTestRun(opts: {
   }
   if (videoUrl) await opts.emit("video", { url: videoUrl }, `${opts.runId}/run.webm`);
 
-  const finalReport = report as RunReport | null;
+  const finalReport = submitted.report;
+  if (finalReport && error) {
+    finalReport.summary = error;
+    for (const step of finalReport.steps) {
+      if (step.status === "not_reached") step.notes = error;
+    }
+  }
+  if (!finalReport) error = error ? `${error} No report was submitted.` : "agent finished without submitting a report";
   let status: RunStatus = "passed";
-  if (outcome === "cap_hit") status = "cap_hit";
-  else if (!finalReport) status = "error";
+  if (outcome === "cap_hit" || outcome === "deadline_hit") status = "cap_hit";
+  else if (outcome === "incomplete" || !finalReport) status = "error";
   else if (finalReport.steps.some((step) => step.status === "fail")) status = "failed";
   else if (
     finalReport.steps.filter((step) => step.status === "not_reached").length >
@@ -186,5 +188,6 @@ export async function executeTestRun(opts: {
     // Mostly-skipped runs must not read as green: nothing failed, but the
     // plan was barely exercised.
     status = "partial";
-  return { status, report: finalReport, screenshots: session.screenshots };
+  await opts.emit("test_run_finished", { status, outcome, error });
+  return { status, report: finalReport, screenshots: session.screenshots, error };
 }

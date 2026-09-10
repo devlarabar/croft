@@ -57,7 +57,7 @@ async function main() {
     return path;
   };
 
-  const { status, report, screenshots } = await executeTestRun({
+  const { status, report, screenshots, error } = await executeTestRun({
     runId,
     previewUrl: url,
     plan,
@@ -71,7 +71,7 @@ async function main() {
     saveArtifact,
   });
 
-  await emit("result", { status, report, screenshots, artifactsDir: outDir });
+  await emit("result", { status, report, screenshots, error, artifactsDir: outDir });
   // Not process.exit(): piped stdout flushes async and exiting can truncate output.
   process.exitCode = status === "passed" ? 0 : 1;
 }
