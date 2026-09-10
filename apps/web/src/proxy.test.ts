@@ -12,7 +12,7 @@ test("public endpoints stay public while all unknown dashboard paths require sig
   }
   const webhook = await proxy(new NextRequest(origin + "/api/webhooks/github", { method: "POST" }));
   assert.equal(webhook.headers.get("x-middleware-next"), "1");
-  for (const path of ["/runs", "/runs/9fe4d6f2-c580-4acf-94c3-c5e5a994ccdb/logs", "/settings", "/api/docs", "/api/local-runs", "/unknown", "/api/forms/settings"]) {
+  for (const path of ["/runs", "/runs/9fe4d6f2-c580-4acf-94c3-c5e5a994ccdb/logs", "/runs/9fe4d6f2-c580-4acf-94c3-c5e5a994ccdb/logs.json", "/settings", "/api/docs", "/api/local-runs", "/unknown", "/api/forms/settings"]) {
     const response = await proxy(new NextRequest(origin + path, { headers: { "x-croft-role": "admin" } }));
     assert.equal(response.status, 302, path);
     assert.equal(response.headers.get("location"), `${origin}/login`, path);
@@ -51,6 +51,17 @@ test("native form URLs rewrite internally only after authorization and CSRF chec
     method: "POST", headers: { origin }, body: new URLSearchParams(),
   }));
   assert.equal(internal.status, 404);
+});
+
+test("admin log downloads are private and read-only", async () => {
+  process.env.DEV_NO_AUTH = "1";
+  const url = `${origin}/runs/9fe4d6f2-c580-4acf-94c3-c5e5a994ccdb/logs.json`;
+  for (const method of ["GET", "HEAD"]) {
+    const response = await proxy(new NextRequest(url, { method }));
+    assert.equal(response.headers.get("x-middleware-next"), "1");
+    assert.equal(response.headers.get("cache-control"), "private, no-store");
+  }
+  assert.equal((await proxy(new NextRequest(url, { method: "POST", headers: { origin } }))).status, 404);
 });
 
 test("pagination and unsupported methods retain their HTTP errors", async () => {

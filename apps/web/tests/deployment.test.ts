@@ -129,6 +129,24 @@ test("run logs decrypt only for admins, paginate, and stay scoped to the run", a
   assert.equal((await request(path, null)).status, 302);
   assert.equal((await request(`${path}?before=bad`)).status, 404);
   assert.equal((await request(`/runs/${randomUUID()}/logs`)).status, 404);
+  const download = await request(`${path}.json?before=3`);
+  assert.equal(download.status, 200);
+  assert.equal(download.headers.get("content-type"), "application/json; charset=utf-8");
+  assert.equal(download.headers.get("content-disposition"), `attachment; filename="croft-run-${runId}-logs.json"`);
+  assert.equal(download.headers.get("cache-control"), "private, no-store");
+  const exported = z.object({ runId: z.uuid(), events: z.array(z.object({
+    runId: z.uuid(), seq: z.number(), type: z.string(), createdAt: z.iso.datetime(), payload: z.record(z.string(), z.unknown()),
+  })) }).parse(await download.json());
+  assert.equal(exported.runId, runId);
+  assert.deepEqual(exported.events.map((event) => event.seq), Array.from({ length: 52 }, (_, index) => index + 1));
+  assert.ok(exported.events.every((event) => event.runId === runId));
+  assert.deepEqual(exported.events[0]?.payload, { text: "event-01-end" });
+  assert.deepEqual(exported.events.at(-1)?.payload, { text: "legacy-event" });
+  for (const role of ["member", "user"] as const) assert.equal((await request(`${path}.json`, role)).status, 403);
+  assert.equal((await request(`${path}.json`, null)).status, 302);
+  assert.equal((await request(`/runs/${randomUUID()}/logs.json`)).status, 404);
+  const emptyRunId = z.uuid().parse(runIds[2]);
+  assert.deepEqual(await (await request(`/runs/${emptyRunId}/logs.json`)).json(), { runId: emptyRunId, events: [] });
 });
 
 test("standalone assets and the existing API docs ship in the image", async () => {
