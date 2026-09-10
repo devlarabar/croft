@@ -113,8 +113,10 @@ full admin access for local development only.
 
 Admins can open **View logs** from a run row or its video page. The viewer
 shows stored agent events, newest first, with expandable payloads and 50 events
-per page; container stdout/stderr still lives in Scaleway. Members cannot
-access event logs. Payloads can contain browser inputs and application data;
+per page; container stdout/stderr still lives in Scaleway. **Copy JSON** and
+**Download JSON** export all events for that run in chronological order,
+including decrypted payloads, regardless of the page currently displayed.
+Members cannot access the viewer or its `/runs/{id}/logs.json` export. Payloads can contain browser inputs and application data;
 do not share raw logs or exported archives publicly.
 
 New event payloads use AES-256-GCM with `TOKEN_ENC_KEY`. The existing JSONB
