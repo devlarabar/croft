@@ -1,4 +1,28 @@
-# Setting up Azure OpenAI and AWS Bedrock
+# Setting up model providers
+
+## OpenAI with ChatGPT OAuth
+
+Use a ChatGPT account with Codex access; no OpenAI API key is needed.
+
+1. Open **Models** → **openai** → **Connect with OAuth**.
+2. Open **Authorize Croft** and sign in with ChatGPT. Close any running Codex
+   login first so it cannot consume the callback.
+3. OpenAI redirects to `http://localhost:1455/auth/callback?...`. The page may
+   fail to load; copy the **entire URL** from the address bar and paste it into
+   Croft's callback field. Finish within ten minutes.
+4. Select an **openai** model available to your account and the new **openai
+   oauth** credential, then **Set active**. Connecting alone does not change
+   the active model.
+
+The picker includes `gpt-5.4`, `gpt-5.5`, `gpt-5.6`, and `gpt-6`.
+Availability depends on OpenAI and your account's model access.
+
+OAuth runs use ChatGPT's Codex endpoint and subscription limits, not the paid
+OpenAI API. Tokens are encrypted at rest and refreshed automatically. If access
+expires or is revoked, connect again and select the new credential. Do not share
+callback URLs. Existing OpenAI API-key credentials continue to use the API.
+
+## Azure OpenAI and AWS Bedrock
 
 Croft can run against Azure-hosted OpenAI models and Bedrock-hosted Claude
 models. Both are pay-per-token with no standing cost. This is the one-time
