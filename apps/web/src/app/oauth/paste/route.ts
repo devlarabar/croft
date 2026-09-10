@@ -1,6 +1,6 @@
-import { getProvider, parseOAuthRedirect } from "@croft/core";
+import { exchangeCode, getProvider } from "@croft/core";
 import { redirect, route } from "../../../http";
-import { storeOAuthCredential } from "../../../oauth-credential";
+import { oauthFailure, storeOAuthCredential } from "../../../oauth-credential";
 import { clearOAuthState, getOAuthState } from "../../../session";
 
 export const POST = route(async (request) => {
@@ -9,14 +9,13 @@ export const POST = route(async (request) => {
   const form = await request.formData();
   const cfg = getProvider(oauthState.provider).oauth;
   const pasted = form.get("code");
-  if (!cfg || typeof pasted !== "string") return new Response("Missing authorization code. Start again from Models.", { status: 400 });
-  const code = cfg.redirectPaste ? parseOAuthRedirect(pasted, cfg, oauthState.state) : pasted.trim();
-  if (!code) return new Response("Invalid callback. Paste the full URL from this login attempt, or start again from Models.", { status: 400 });
+  if (!cfg || cfg.flow === "device" || typeof pasted !== "string" || !pasted.trim()) {
+    return new Response("Missing authorization code. Start again from Models.", { status: 400 });
+  }
   try {
-    await storeOAuthCredential(oauthState.provider, code, oauthState.verifier);
-  } catch {
-    console.error("OAuth credential connection failed", { providerId: oauthState.provider });
-    return redirect("/models?notice=OAuth+connection+failed.+Please+connect+again.");
+    await storeOAuthCredential(oauthState.provider, await exchangeCode(cfg, pasted, oauthState.verifier, request.signal));
+  } catch (error) {
+    return oauthFailure(oauthState.provider, error);
   }
   const response = redirect("/models?notice=OAuth+connected");
   clearOAuthState(response);

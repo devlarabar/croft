@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { parse, serialize } from "cookie";
 import { z } from "zod";
+import { openaiDeviceCodeSchema } from "@croft/core";
 
 export const githubUserSchema = z.object({ id: z.number().int().positive(), login: z.string().min(1) });
 const sessionSchema = z.object({ githubId: z.string(), exp: z.number() });
@@ -63,6 +64,22 @@ export function getOAuthState(request: Request): OAuthState | null {
   if (!payload) return null;
   const data = oauthStateSchema.parse(JSON.parse(payload));
   return data.exp > Date.now() ? data : null;
+}
+
+const openaiDeviceStateSchema = openaiDeviceCodeSchema.extend({ expiresAt: z.number(), nextCheckAt: z.number() });
+export type OpenAiDeviceState = z.infer<typeof openaiDeviceStateSchema>;
+
+export function setOpenAiDeviceState(response: Response, state: OpenAiDeviceState | null): void {
+  const value = state ? sign(JSON.stringify(state)) : "";
+  const maxAge = state ? Math.max(0, Math.ceil((state.expiresAt - Date.now()) / 1000)) : 0;
+  response.headers.append("Set-Cookie", serialize("croft_openai_device", value, { ...cookieOptions, maxAge }));
+}
+
+export function getOpenAiDeviceState(request: Request): OpenAiDeviceState | null {
+  const payload = verify(parse(request.headers.get("cookie") ?? "")["croft_openai_device"]);
+  if (!payload) return null;
+  const result = openaiDeviceStateSchema.safeParse(JSON.parse(payload));
+  return result.success && result.data.expiresAt > Date.now() ? result.data : null;
 }
 
 export function newState(): string {

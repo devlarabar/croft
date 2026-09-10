@@ -1,5 +1,6 @@
 import type { ProviderAdapter } from "../types.js";
-import { codexChat, codexOAuth } from "./openai-codex.js";
+import { openaiOAuth } from "../openai-device.js";
+import { codexChat } from "./openai-codex.js";
 import { OpenAiCompatibleAdapter } from "./openai-compatible.js";
 
 const apiKey = new OpenAiCompatibleAdapter(
@@ -11,6 +12,6 @@ const apiKey = new OpenAiCompatibleAdapter(
 export const openai: ProviderAdapter = {
   id: apiKey.id,
   models: apiKey.models,
-  oauth: codexOAuth,
+  oauth: openaiOAuth,
   chat: (req, cred) => cred.kind === "oauth" ? codexChat(req, cred) : apiKey.chat(req, cred),
 };

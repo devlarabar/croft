@@ -49,18 +49,26 @@ export interface Credential {
   getToken(): Promise<string>;
 }
 
-export interface OAuthConfig {
-  authorizeUrl: string;
+interface OAuthTokenConfig {
   tokenUrl: string;
   clientId: string;
-  scopes: string[];
   redirectUri: string;
-  // true: provider shows the code on its own callback page; user pastes it.
-  codePaste?: boolean;
-  // OpenAI redirects to localhost; hosted callers paste the complete callback URL.
-  redirectPaste?: boolean;
   tokenEncoding?: "form";
 }
+
+export interface OAuthCodeConfig extends OAuthTokenConfig {
+  flow?: "code";
+  authorizeUrl: string;
+  scopes: string[];
+  // true: provider shows the code on its own callback page; user pastes it.
+  codePaste?: boolean;
+}
+
+export interface OAuthDeviceConfig extends OAuthTokenConfig {
+  flow: "device";
+}
+
+export type OAuthConfig = OAuthCodeConfig | OAuthDeviceConfig;
 
 export interface ProviderAdapter {
   id: string;

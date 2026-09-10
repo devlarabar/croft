@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
-import type { OAuthConfig } from "./types.js";
+import type { OAuthCodeConfig, OAuthConfig } from "./types.js";
 
 export interface Pkce {
   verifier: string;
@@ -13,7 +13,7 @@ export function generatePkce(): Pkce {
   return { verifier, challenge };
 }
 
-export function authorizeUrl(cfg: OAuthConfig, challenge: string, state: string): string {
+export function authorizeUrl(cfg: OAuthCodeConfig, challenge: string, state: string): string {
   const url = new URL(cfg.authorizeUrl);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("client_id", cfg.clientId);
@@ -38,14 +38,23 @@ const tokenResponseSchema = z.object({
   expires_in: z.number().positive().optional(),
 });
 
-async function tokenRequest(cfg: OAuthConfig, body: Record<string, string>): Promise<TokenResponse> {
+export type OAuthStep = "device-code" | "device-approval" | "token";
+
+export class OAuthRequestError extends Error {
+  constructor(readonly step: OAuthStep, readonly status: number) {
+    super(`OAuth ${step} endpoint returned ${status}. Reconnect from Models.`);
+  }
+}
+
+async function tokenRequest(cfg: OAuthConfig, body: Record<string, string>, signal?: AbortSignal): Promise<TokenResponse> {
   const form = cfg.tokenEncoding === "form";
   const res = await fetch(cfg.tokenUrl, {
     method: "POST",
     headers: { "content-type": form ? "application/x-www-form-urlencoded" : "application/json" },
     body: form ? new URLSearchParams(body) : JSON.stringify(body),
+    signal,
   });
-  if (!res.ok) throw new Error(`OAuth token endpoint returned ${res.status}. Reconnect from Models.`);
+  if (!res.ok) throw new OAuthRequestError("token", res.status);
   const json = tokenResponseSchema.parse(await res.json());
   return {
     accessToken: json.access_token,
@@ -54,26 +63,18 @@ async function tokenRequest(cfg: OAuthConfig, body: Record<string, string>): Pro
   };
 }
 
-export function parseOAuthRedirect(pasted: string, cfg: OAuthConfig, state: string): string | null {
-  if (!URL.canParse(pasted.trim())) return null;
-  const url = new URL(pasted.trim());
-  const redirect = new URL(cfg.redirectUri);
-  if (url.origin !== redirect.origin || url.pathname !== redirect.pathname ||
-      url.searchParams.get("state") !== state || url.searchParams.has("error")) return null;
-  return url.searchParams.get("code") || null;
-}
-
 // Code-paste flows return "code#state" from the provider's callback page.
-export function exchangeCode(cfg: OAuthConfig, pasted: string, verifier: string): Promise<TokenResponse> {
+export function exchangeCode(cfg: OAuthConfig, pasted: string, verifier: string, signal?: AbortSignal): Promise<TokenResponse> {
   const [code, state] = pasted.trim().split("#");
+  if (!code) throw new Error("Missing authorization code. Reconnect from Models.");
   return tokenRequest(cfg, {
     grant_type: "authorization_code",
-    code: code!,
+    code,
     ...(state ? { state } : {}),
     client_id: cfg.clientId,
     redirect_uri: cfg.redirectUri,
     code_verifier: verifier,
-  });
+  }, signal);
 }
 
 export function refreshAccessToken(cfg: OAuthConfig, refreshToken: string): Promise<TokenResponse> {

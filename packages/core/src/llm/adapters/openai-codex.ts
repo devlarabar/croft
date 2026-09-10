@@ -7,21 +7,8 @@ import {
   type ContentPart,
   type Credential,
   LlmTransportError,
-  type OAuthConfig,
   parseRetryAfter,
 } from "../types.js";
-
-// Codex's public PKCE client only allows localhost callbacks.
-// https://github.com/openai/codex/blob/main/codex-rs/login/src/server.rs
-export const codexOAuth: OAuthConfig = {
-  authorizeUrl: "https://auth.openai.com/oauth/authorize?id_token_add_organizations=true&codex_cli_simplified_flow=true&originator=codex_cli_rs",
-  tokenUrl: "https://auth.openai.com/oauth/token",
-  clientId: "app_EMoamEEZ73f0CkXaXp7hrann",
-  scopes: ["openid", "profile", "email", "offline_access"],
-  redirectUri: "http://localhost:1455/auth/callback",
-  redirectPaste: true,
-  tokenEncoding: "form",
-};
 
 const claimsSchema = z.object({
   "https://api.openai.com/auth": z.object({ chatgpt_account_id: z.string().min(1) }),

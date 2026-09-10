@@ -15,6 +15,7 @@ export * from "./run-flavour.js";
 export * from "./skills.js";
 export * from "./llm/types.js";
 export * from "./llm/oauth.js";
+export * from "./llm/openai-device.js";
 export * from "./llm/credential.js";
 export * from "./llm/registry.js";
 export * from "./llm/loop.js";

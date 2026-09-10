@@ -5,9 +5,9 @@ import { runPageSchema } from "./run-pagination";
 import { serverError } from "./http";
 
 const GET_PATHS = new Set(["/", "/runs", "/new", "/models", "/chat", "/learnings", "/export", "/settings", "/users",
-  "/credcheck", "/keyfp", "/oauth/start", "/oauth/callback", "/api/export", "/api/docs", "/api/openapi.json"]);
+  "/credcheck", "/keyfp", "/oauth/start", "/oauth/callback", "/oauth/openai", "/api/export", "/api/docs", "/api/openapi.json"]);
 const FORM_PATHS = new Set(["/runs", "/chat", "/learnings", "/settings", "/users"]);
-const POST_PATHS = new Set(["/models/credential", "/models/active", "/oauth/paste", "/api/purge"]);
+const POST_PATHS = new Set(["/models/credential", "/models/active", "/oauth/paste", "/oauth/openai", "/api/purge"]);
 const PUBLIC_GET_PATHS = new Set(["/login", "/login/callback", "/api/v1/activity", "/favicon.ico", "/styles.css"]);
 
 export async function proxy(request: NextRequest): Promise<Response> {
