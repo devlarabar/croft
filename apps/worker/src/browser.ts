@@ -50,6 +50,7 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
 
   const tools: AgentTool[] = [
     {
+      recoveryTool: "browser_snapshot",
       def: {
         name: "browser_navigate",
         description: "Navigate the browser to a URL.",
@@ -87,6 +88,7 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
       },
     },
     {
+      recoveryTool: "browser_snapshot",
       def: {
         name: "browser_click",
         description:
@@ -105,6 +107,7 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
       },
     },
     {
+      recoveryTool: "browser_snapshot",
       def: {
         name: "browser_hover",
         description:
@@ -123,6 +126,7 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
       },
     },
     {
+      recoveryTool: "browser_snapshot",
       def: {
         name: "browser_type",
         description: "Fill an input matched by a selector with text.",
@@ -148,6 +152,7 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
       },
     },
     {
+      recoveryTool: "browser_snapshot",
       def: {
         name: "browser_upload",
         description: `Set a file input to a bundled fixture. Available: ${fixtureNames.length ? fixtureNames.join(", ") : "none"}.`,
@@ -168,6 +173,7 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
       },
     },
     {
+      recoveryTool: "browser_snapshot",
       def: {
         name: "browser_wait_for",
         description:
