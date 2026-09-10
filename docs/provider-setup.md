@@ -4,15 +4,20 @@
 
 Use a ChatGPT account with Codex access; no OpenAI API key is needed.
 
-1. Open **Models** → **openai** → **Connect with OAuth**.
-2. Open **Authorize Croft** and sign in with ChatGPT. Close any running Codex
-   login first so it cannot consume the callback.
-3. OpenAI redirects to `http://localhost:1455/auth/callback?...`. The page may
-   fail to load; copy the **entire URL** from the address bar and paste it into
-   Croft's callback field. Finish within ten minutes.
-4. Select an **openai** model available to your account and the new **openai
+1. Enable **device code login** in ChatGPT's security settings, or ask your
+   workspace admin to enable it.
+2. Open **Models** → **openai** → **Connect with OAuth**.
+3. Open **OpenAI’s device login**, sign in, and enter the code shown in Croft.
+   Only approve a code from a connection you started. Codes expire in 15 minutes.
+4. Return to Croft and click **Check connection**. If approval is still pending,
+   finish signing in, wait a few seconds, and check again. Use **Start again**
+   if the code expires.
+5. Select an **openai** model available to your account and the new **openai
    oauth** credential, then **Set active**. Connecting alone does not change
    the active model.
+
+This uses [Codex's device-code flow](https://developers.openai.com/codex/auth/#login-on-headless-devices);
+there is no localhost callback or URL to paste.
 
 The picker includes `gpt-5.4`, `gpt-5.5`, `gpt-5.6`, and `gpt-6`.
 Availability depends on OpenAI and your account's model access.
@@ -20,7 +25,7 @@ Availability depends on OpenAI and your account's model access.
 OAuth runs use ChatGPT's Codex endpoint and subscription limits, not the paid
 OpenAI API. Tokens are encrypted at rest and refreshed automatically. If access
 expires or is revoked, connect again and select the new credential. Do not share
-callback URLs. Existing OpenAI API-key credentials continue to use the API.
+login codes or tokens. Existing OpenAI API-key credentials continue to use the API.
 
 ## Azure OpenAI and AWS Bedrock
 
