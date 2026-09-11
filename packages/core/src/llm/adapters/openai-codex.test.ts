@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { z } from "zod";
+import { runAgentLoop } from "../loop.js";
 import { type ChatEvent, type ChatRequest, type Credential, LlmTransportError } from "../types.js";
 import { openai } from "./openai.js";
 
@@ -80,6 +81,37 @@ test("OAuth uses Codex with account auth, vision, tool history and forced tool c
   assert.equal(body.locked, false);
 });
 
+const reviewCall = { type: "function_call", call_id: "review_1", name: "submit_review", arguments: '{"score":95}' };
+
+for (const output of [undefined, [], [reviewCall]]) {
+  test(`streamed review submission completes once with terminal output ${JSON.stringify(output)}`, async (context) => {
+    context.mock.method(globalThis, "fetch", async () => new Response(sse([
+      { type: "response.output_item.added", item: { ...reviewCall, arguments: "" } },
+      { type: "response.function_call_arguments.delta", item_id: "item_1", delta: '{"score":' },
+      { type: "response.function_call_arguments.done", item_id: "item_1", arguments: reviewCall.arguments },
+      { type: "response.output_item.done", item: reviewCall },
+      { type: "response.completed", response: { output, usage: { input_tokens: 126231, output_tokens: 344 } } },
+    ])));
+    const submitted: unknown[] = [];
+    const events: string[] = [];
+    const result = await runAgentLoop({
+      adapter: openai, cred: credential, model: request.model, system: "Review this PR.",
+      messages: [{ role: "user", content: [{ type: "text", text: "Submit your review." }] }],
+      tools: [{
+        def: { name: "submit_review", description: "Submit", inputSchema: { type: "object" } },
+        schema: z.object({ score: z.number() }),
+        async execute(args) { submitted.push(args); return []; },
+      }],
+      completionTool: "submit_review", toolChoice: "submit_review", toolCallCap: 3,
+      async onEvent(type) { events.push(type); },
+    });
+    assert.equal(result.outcome, "done");
+    assert.equal(result.toolCalls, 1);
+    assert.deepEqual(submitted, [{ score: 95 }]);
+    assert.deepEqual(events, ["agent_loop_started", "usage", "tool_call", "tool_result", "agent_loop_stopped"]);
+  });
+}
+
 test("OpenAI API keys still use chat completions", async (context) => {
   context.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
     assert.equal(url, "https://api.openai.com/v1/chat/completions");
@@ -95,18 +127,26 @@ for (const event of [undefined, { type: "response.failed" }, { type: "error" }, 
   type: "response.incomplete", response: { output: [], incomplete_details: { reason: "content_filter" } },
 }]) {
   test(`Codex rejects unsuccessful or truncated streams: ${event?.type ?? "no terminal event"}`, async (context) => {
-    context.mock.method(globalThis, "fetch", async () => new Response(sse(event ? [event] : [])));
-    await assert.rejects(collect(), LlmTransportError);
+    context.mock.method(globalThis, "fetch", async () => new Response(sse([
+      { type: "response.output_item.done", item: reviewCall },
+      ...(event ? [event] : []),
+    ])));
+    const emitted: ChatEvent[] = [];
+    await assert.rejects(async () => {
+      for await (const item of openai.chat(request, credential)) emitted.push(item);
+    }, LlmTransportError);
+    assert.deepEqual(emitted, []);
   });
 }
 
 test("output limits do not execute partial tool calls", async (context) => {
-  context.mock.method(globalThis, "fetch", async () => new Response(sse([{
-    type: "response.incomplete", response: {
-      output: [{ type: "function_call", call_id: "partial", name: "report", arguments: "{" }],
-      incomplete_details: { reason: "max_output_tokens" },
-    },
-  }])));
+  const partial = { ...reviewCall, arguments: "{" };
+  context.mock.method(globalThis, "fetch", async () => new Response(sse([
+    { type: "response.output_item.done", item: partial },
+    { type: "response.incomplete", response: {
+      output: [partial], incomplete_details: { reason: "max_output_tokens" },
+    } },
+  ])));
   assert.deepEqual(await collect(), [{ type: "done", stopReason: "max_tokens" }]);
 });
 

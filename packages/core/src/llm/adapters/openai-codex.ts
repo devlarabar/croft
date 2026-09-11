@@ -16,9 +16,13 @@ const claimsSchema = z.object({
 const eventSchema = z.object({ type: z.string() });
 const deltaSchema = z.object({ delta: z.string() });
 const functionCallSchema = z.object({ call_id: z.string(), name: z.string(), arguments: z.string() });
+type FunctionCall = z.infer<typeof functionCallSchema>;
+const outputItemSchema = z.looseObject({ type: z.string() });
+type OutputItem = z.infer<typeof outputItemSchema>;
+const itemDoneSchema = z.object({ item: outputItemSchema });
 const completionSchema = z.object({
   response: z.object({
-    output: z.array(z.looseObject({ type: z.string() })),
+    output: z.array(outputItemSchema).optional(),
     incomplete_details: z.object({ reason: z.string() }).nullish(),
     usage: z.object({
       input_tokens: z.number(),
@@ -98,24 +102,33 @@ export async function* codexChat(req: ChatRequest, cred: Credential): AsyncItera
       parseRetryAfter(res.headers.get("retry-after")),
     );
   }
+  const finishedItems: OutputItem[] = [];
   for await (const data of sseData(res.body)) {
     if (data === "[DONE]") break;
     const json: unknown = JSON.parse(data);
     const event = eventSchema.parse(json);
     if (event.type === "response.output_text.delta") {
       yield { type: "text_delta", text: deltaSchema.parse(json).delta };
+    } else if (event.type === "response.output_item.done") {
+      // Codex delivers tool calls here; response.completed may contain only usage.
+      // https://github.com/openai/codex/blob/main/codex-rs/codex-api/src/sse/responses.rs
+      const { item } = itemDoneSchema.parse(json);
+      if (item.type === "function_call") finishedItems.push(item);
     } else if (event.type === "response.completed" || event.type === "response.incomplete") {
       const { response } = completionSchema.parse(json);
       if (event.type === "response.incomplete" && response.incomplete_details?.reason !== "max_output_tokens") {
         throw new LlmTransportError("OpenAI Codex could not complete the response. Please retry.");
       }
-      const calls = response.output
-        .filter((item) => event.type === "response.completed" && item.type === "function_call")
-        .map((item) => functionCallSchema.parse(item));
-      for (const call of calls) {
+      const calls = new Map<string, FunctionCall>();
+      for (const item of [...finishedItems, ...(response.output ?? [])]) {
+        if (event.type !== "response.completed" || item.type !== "function_call") continue;
+        const call = functionCallSchema.parse(item);
+        calls.set(call.call_id, call);
+      }
+      for (const call of calls.values()) {
         yield { type: "tool_call", call: { id: call.call_id, name: call.name, args: JSON.parse(call.arguments) } };
       }
-      let stopReason: "end" | "tool_use" | "max_tokens" = calls.length ? "tool_use" : "end";
+      let stopReason: "end" | "tool_use" | "max_tokens" = calls.size ? "tool_use" : "end";
       if (event.type === "response.incomplete") stopReason = "max_tokens";
       yield {
         type: "done",
