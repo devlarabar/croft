@@ -9,7 +9,7 @@ const token = `header.${Buffer.from(JSON.stringify({
 })).toString("base64url")}.signature`;
 const credential: Credential = { kind: "oauth", getToken: async () => token };
 const request: ChatRequest = {
-  model: "gpt-5.4", system: "Test the page", maxTokens: 100,
+  model: "gpt-6-astra", system: "Test the page", maxTokens: 100,
   messages: [
     { role: "user", content: [{ type: "text", text: "Click save" }] },
     { role: "assistant", content: "Clicking", toolCalls: [{ id: "call_1", name: "click", args: { x: 10 } }] },
@@ -30,6 +30,10 @@ async function collect(req = request, cred = credential): Promise<ChatEvent[]> {
 function sse(events: unknown[]): string {
   return events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("");
 }
+
+test("the GPT-6 picker uses OpenAI's documented Astra identifier", () => {
+  assert.deepEqual(openai.models.filter((model) => model.startsWith("gpt-6")), ["gpt-6-astra"]);
+});
 
 test("OAuth uses Codex with account auth, vision, tool history and forced tool choice", async (context) => {
   let cancelled = false;
@@ -54,7 +58,7 @@ test("OAuth uses Codex with account auth, vision, tool history and forced tool c
     assert.equal(init.method, "POST");
     const json: unknown = JSON.parse(z.string().parse(init.body));
     assert.deepEqual(json, {
-      model: "gpt-5.4", instructions: "Test the page", stream: true, store: false,
+      model: "gpt-6-astra", instructions: "Test the page", stream: true, store: false,
       input: [
         { role: "user", content: [{ type: "input_text", text: "Click save" }] },
         { role: "assistant", content: [{ type: "output_text", text: "Clicking" }] },

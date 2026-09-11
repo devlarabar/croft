@@ -19,7 +19,9 @@ Use a ChatGPT account with Codex access; no OpenAI API key is needed.
 This uses [Codex's device-code flow](https://developers.openai.com/codex/auth/#login-on-headless-devices);
 there is no localhost callback or URL to paste.
 
-The picker includes `gpt-5.4`, `gpt-5.5`, `gpt-5.6`, and `gpt-6`.
+The picker includes `gpt-5.4`, `gpt-5.5`, `gpt-5.6`, and `gpt-6-astra`.
+If you previously selected `gpt-6`, select `gpt-6-astra`, click **Set active**,
+and start a new run. Existing runs retain their original model ID.
 Availability depends on OpenAI and your account's model access.
 
 OAuth runs use ChatGPT's Codex endpoint and subscription limits, not the paid
