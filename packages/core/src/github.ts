@@ -3,6 +3,7 @@ import { App } from "@octokit/app";
 import { z } from "zod";
 import { stripGeneratedFiles } from "./diff.js";
 import { withRetry } from "./retry.js";
+import { redact } from "./redact.js";
 
 // Lazy: local dev without GITHUB_APP_* env must still boot the dashboard.
 let _app: App | undefined;
@@ -200,7 +201,7 @@ export async function replyToReviewComment(
     repo: name,
     pull_number: prNumber,
     comment_id: commentId,
-    body,
+    body: redact(body),
   });
 }
 
@@ -256,13 +257,13 @@ export async function createPrReview(
     pull_number: prNumber,
     commit_id: headSha,
     event: approved ? "APPROVE" : "COMMENT",
-    body,
+    body: redact(body),
     comments: comments.map((comment) => ({
       path: comment.path,
       line: comment.line,
       start_line: comment.startLine,
       side: "RIGHT" as const,
-      body: comment.body,
+      body: redact(comment.body),
     })),
   });
 }
@@ -275,7 +276,7 @@ export async function postPrComment(repo: string, prNumber: number, body: string
     owner,
     repo: name,
     issue_number: prNumber,
-    body,
+    body: redact(body),
   });
 }
 
@@ -296,7 +297,7 @@ export async function createCheckRun(
         head_sha: headSha,
         status: "completed",
         conclusion,
-        output: { title: "Croft run", summary },
+        output: { title: "Croft run", summary: redact(summary) },
       }),
     retry3,
   );

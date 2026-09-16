@@ -11,5 +11,5 @@ export function encryptEventPayload(payload: unknown): string {
 export function decryptEventPayload(payload: unknown) {
   // Legacy rows remain readable while old workers drain and the backfill runs.
   const value = typeof payload === "string" ? JSON.parse(decrypt(payload)) : payload;
-  return payloadSchema.parse(value);
+  return redactDeep(payloadSchema.parse(value));
 }

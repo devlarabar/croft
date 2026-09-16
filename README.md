@@ -53,6 +53,7 @@ and a well-known dev `TOKEN_ENC_KEY` — export a real one before pasting API
 keys you care about.
 
 `DEV_NO_AUTH=1` bypasses GitHub login so no OAuth app is needed locally.
+Production startup rejects this setting; production requests never honor it.
 GitHub-backed features (new-run PR listing, webhooks, Q&A, comment posting)
 still need real `GITHUB_APP_*` credentials; the rest of the UI works without
 them (export `GITHUB_APP_ID`/`GITHUB_APP_PRIVATE_KEY` before `pnpm dev`). For
@@ -135,6 +136,12 @@ Old backups and previously downloaded exports still contain their original
 payloads. Admin exports and Q&A decrypt events on the server. This protects
 `events.payload`, not run reports, screenshots, videos, or container logs.
 Rolling back to a reader predating encryption will break event consumers.
+
+Recognizable model tokens and credential fields are redacted before model
+requests, event storage, and GitHub publication, and when reading older events.
+Preview-login passwords remain available to the browser agent for testing.
+Redaction does not detect every secret format or scrub images, old backups,
+previous exports, or existing GitHub comments.
 
 ### Video access rollout
 

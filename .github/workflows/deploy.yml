@@ -39,7 +39,7 @@ jobs:
 
       - name: Deploy web container
         run: |
-          curl -fsS -X PATCH \
+          curl -fsS --output /dev/null -X PATCH \
             -H "X-Auth-Token: ${{ secrets.SCW_SECRET_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{"registry_image": "'"$REGISTRY"'/web:${{ github.sha }}", "redeploy": true}' \
@@ -49,7 +49,7 @@ jobs:
       # on each job run.
       - name: Update worker job definition image
         run: |
-          curl -fsS -X PATCH \
+          curl -fsS --output /dev/null -X PATCH \
             -H "X-Auth-Token: ${{ secrets.SCW_SECRET_KEY }}" \
             -H "Content-Type: application/json" \
             -d '{"image_uri": "'"$REGISTRY"'/worker:${{ github.sha }}"}' \

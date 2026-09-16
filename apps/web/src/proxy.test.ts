@@ -2,8 +2,28 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { NextRequest } from "next/server";
 import { proxy } from "./proxy";
+import { register } from "./instrumentation";
 
 const origin = "https://croft.test";
+
+test("production rejects the auth bypass at startup and on requests", async () => {
+  const previousMode = process.env.NODE_ENV;
+  const previousBypass = process.env.DEV_NO_AUTH;
+  Object.assign(process.env, { NODE_ENV: "production", DEV_NO_AUTH: "1" });
+  try {
+    await assert.rejects(register(), /DEV_NO_AUTH must not be enabled in production/);
+    for (const path of ["/models", "/api/local-runs"]) {
+      const response = await proxy(new NextRequest(origin + path, { method: "POST" }));
+      assert.equal(response.status, 302);
+      assert.equal(response.headers.get("location"), `${origin}/login`);
+    }
+  } finally {
+    if (previousMode === undefined) Reflect.deleteProperty(process.env, "NODE_ENV");
+    else Object.assign(process.env, { NODE_ENV: previousMode });
+    if (previousBypass === undefined) delete process.env.DEV_NO_AUTH;
+    else process.env.DEV_NO_AUTH = previousBypass;
+  }
+});
 
 test("public endpoints stay public while all unknown dashboard paths require sign-in", async () => {
   delete process.env.DEV_NO_AUTH;

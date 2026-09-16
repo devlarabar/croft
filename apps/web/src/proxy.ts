@@ -14,7 +14,7 @@ export async function proxy(request: NextRequest): Promise<Response> {
   const path = request.nextUrl.pathname;
   const read = request.method === "GET" || request.method === "HEAD";
   if ((read && PUBLIC_GET_PATHS.has(path)) || (request.method === "POST" && (
-    path === "/api/webhooks/github" || (path === "/api/local-runs" && process.env.DEV_NO_AUTH === "1")
+    path === "/api/webhooks/github" || (path === "/api/local-runs" && process.env.DEV_NO_AUTH === "1" && process.env.NODE_ENV !== "production")
   ))) return NextResponse.next();
 
   let response: Response;

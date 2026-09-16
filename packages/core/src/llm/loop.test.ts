@@ -48,6 +48,39 @@ function fixture(turns: ChatEvent[][]) {
   };
 }
 
+test("model input and emitted events redact credentials without changing tool execution", async () => {
+  const secret = `sk-proj-${"a".repeat(40)}`;
+  const setup = fixture([[{ type: "text_delta", text: secret }, submission({ summary: secret })]]);
+  setup.options.system = `Review this: ${secret}`;
+  await runAgentLoop({
+    ...setup.options,
+    messages: [{ role: "user", content: [{ type: "text", text: `secretAccessKey = '${secret}'` }] }],
+  });
+  assert.equal(JSON.stringify(setup.requests).includes(secret), false);
+  assert.equal(setup.requests[0]?.system, "Review this: [redacted]");
+  assert.equal(JSON.stringify(setup.events).includes(secret), false);
+  assert.deepEqual(setup.reports, [secret]);
+});
+
+test("secrets in tool responses never reach the next model request or event output", async () => {
+  const setup = fixture([
+    [{ type: "tool_call", call: { id: "read", name: "read_file", args: {} } }],
+    [submission()],
+  ]);
+  setup.options.tools.push({
+    def: { name: "read_file", description: "Read", inputSchema: { type: "object" } },
+    schema: z.object({}),
+    async execute() {
+      return [{ type: "text", text: '{"nested":{"secretAccessKey":"synthetic-secret"}}' }];
+    },
+  });
+  await runAgentLoop(setup.options);
+  assert.equal(setup.requests.length, 2);
+  assert.equal(JSON.stringify(setup.requests).includes("synthetic-secret"), false);
+  assert.equal(JSON.stringify(setup.events).includes("synthetic-secret"), false);
+  assert.deepEqual(setup.reports, ["Tested"]);
+});
+
 function submission(args: unknown = { summary: "Tested" }): ChatEvent {
   return { type: "tool_call", call: { id: "submission", name: "report", args } };
 }

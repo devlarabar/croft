@@ -14,7 +14,7 @@ export function canAccess(role: DashboardRole, method: string, path: string): bo
 
 export async function requireAuth(request: Request): Promise<DashboardRole | Response> {
   let role: DashboardRole = "user";
-  if (process.env.DEV_NO_AUTH === "1") {
+  if (process.env.DEV_NO_AUTH === "1" && process.env.NODE_ENV !== "production") {
     role = "admin";
   } else {
     const githubId = sessionUser(request);

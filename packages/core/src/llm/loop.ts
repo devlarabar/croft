@@ -1,5 +1,5 @@
 import type { ZodType } from "zod";
-import { redact } from "../redact.js";
+import { redact, redactDeep } from "../redact.js";
 import { withRetry } from "../retry.js";
 import {
   ChatMessage,
@@ -42,7 +42,11 @@ async function chatTurn(adapter: ProviderAdapter, req: ChatRequest, cred: Creden
   return withRetry(
     async () => {
       const turn: Turn = { text: "", toolCalls: [], stopReason: "end" };
-      for await (const ev of adapter.chat(req, cred)) {
+      for await (const ev of adapter.chat({
+        ...req,
+        system: req.system === undefined ? undefined : redact(req.system),
+        messages: redactDeep(req.messages),
+      }, cred)) {
         if (ev.type === "text_delta") turn.text += ev.text;
         else if (ev.type === "tool_call") turn.toolCalls.push(ev.call);
         else {
@@ -122,7 +126,7 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
     }
     messages.push({ role: "assistant", content: turn.text, toolCalls: turn.toolCalls });
     if (turn.usage) await opts.onEvent("usage", turn.usage);
-    if (turn.text) await opts.onEvent("assistant_text", { text: turn.text });
+    if (turn.text) await opts.onEvent("assistant_text", { text: redact(turn.text) });
     if (turn.toolCalls.length === 0) {
       if (!opts.toolChoice && ++incompleteTurns >= 3) return finish("incomplete");
       let instruction = `Call \`${opts.completionTool}\` now to submit your result.`;
@@ -156,7 +160,7 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
         continue;
       }
       toolCalls++;
-      await opts.onEvent("tool_call", { name: call.name, args: call.args });
+      await opts.onEvent("tool_call", { name: call.name, args: redactDeep(call.args) });
       const tool = byName.get(call.name);
       let result: ToolResult;
       if (inspected || (recoveryTool && call.name !== recoveryTool)) {
@@ -176,7 +180,7 @@ export async function runAgentLoop(opts: AgentLoopOptions): Promise<AgentLoopRes
       }
       await opts.onEvent("tool_result", {
         name: call.name, succeeded: result.succeeded,
-        result: result.content.filter((part) => part.type === "text"),
+        result: redactDeep(result.content.filter((part) => part.type === "text")),
       });
       messages.push({ role: "tool", toolCallId: call.id, content: result.content });
       completed = result.succeeded && call.name === opts.completionTool;
