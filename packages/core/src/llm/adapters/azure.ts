@@ -1,10 +1,8 @@
+import { z } from "zod";
 import { OpenAiCompatibleAdapter } from "./openai-compatible.js";
 
-// The credential blob is JSON, not a bare key — built by the web form.
-interface AzureCredentialBlob {
-  apiKey: string;
-  resourceName: string;
-}
+const azureCredentialSchema = z.object({ apiKey: z.string().min(1), resourceName: z.string() });
+const resourceNameSchema = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$/);
 
 const API_VERSION = "2025-01-01-preview";
 
@@ -16,13 +14,16 @@ class AzureAdapter extends OpenAiCompatibleAdapter {
   }
 
   protected override resolve(token: string) {
-    const blob = JSON.parse(token) as AzureCredentialBlob;
+    const blob = azureCredentialSchema.parse(JSON.parse(token));
     // Azure shows the endpoint as a URL, so that's what gets pasted into the
     // resource-name field; the bare name is what belongs in the host.
     const resource = blob.resourceName
       .trim()
       .replace(/^https?:\/\//, "")
       .replace(/\.openai\.azure\.com\/?$/, "");
+    if (!resourceNameSchema.safeParse(resource).success) {
+      throw new Error("Invalid Azure resource. Enter its resource name or HTTPS Azure endpoint.");
+    }
     return {
       baseUrl: `https://${resource}.openai.azure.com/openai`,
       headers: { "api-key": blob.apiKey },
