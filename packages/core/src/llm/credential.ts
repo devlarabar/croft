@@ -2,21 +2,28 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "../db/client.js";
 import { decrypt, encrypt } from "../crypto.js";
 import { refreshAccessToken } from "./oauth.js";
-import type { Credential, OAuthConfig } from "./types.js";
+import type { Credential, OAuthConfig, ProviderAdapter } from "./types.js";
 
 interface OAuthBlob {
   accessToken: string;
   refreshToken?: string;
 }
 
+export class CredentialProviderMismatchError extends Error {
+  constructor() {
+    super("Credential provider does not match the selected model.");
+  }
+}
+
 const refreshing = new Map<string, Promise<string>>(); // single-flight per credential
 
-export async function loadCredential(credentialId: string, oauth?: OAuthConfig): Promise<Credential> {
+export async function loadCredential(credentialId: string, provider: ProviderAdapter): Promise<Credential> {
   const [row] = await db
     .select()
     .from(schema.credentials)
     .where(eq(schema.credentials.id, credentialId));
-  if (!row) throw new Error(`credential ${credentialId} not found`);
+  if (!row) throw new Error("Credential not found. Select a saved credential in Models.");
+  if (row.providerId !== provider.id) throw new CredentialProviderMismatchError();
 
   if (row.kind === "api_key") {
     return { kind: "api_key", getToken: async () => decrypt(row.encrypted) };
@@ -27,7 +34,7 @@ export async function loadCredential(credentialId: string, oauth?: OAuthConfig):
     getToken: () => {
       const inflight = refreshing.get(row.id);
       if (inflight) return inflight;
-      const pending = oauthToken(row, oauth).finally(() => refreshing.delete(row.id));
+      const pending = oauthToken(row, provider.oauth).finally(() => refreshing.delete(row.id));
       refreshing.set(row.id, pending);
       return pending;
     },

@@ -1,4 +1,4 @@
-import { db, finishRunFlavour, schema } from "@croft/core";
+import { db, errorSummary, finishRunFlavour, schema } from "@croft/core";
 import { eq } from "drizzle-orm";
 import { getRun } from "../../../../data/runs";
 import { redirect, route } from "../../../../http";
@@ -13,7 +13,7 @@ export const POST = route(async (_request, { params }: RouteContext<"/runs/[id]/
     try {
       await stopJob(run.jobRunId);
     } catch (error) {
-      console.error(`stop job for run ${run.id}:`, error);
+      console.error(`stop job for run ${run.id}:`, errorSummary(error));
     }
   }
   await db.update(schema.runs).set({

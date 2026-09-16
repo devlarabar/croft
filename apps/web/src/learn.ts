@@ -64,7 +64,7 @@ export async function learnFromComment(opts: {
   const cfg = await getConfig();
   if (!cfg.activeModel) throw new Error("No active model configured.");
   const adapter = getProvider(cfg.activeModel.providerId);
-  const cred = await loadCredential(cfg.activeModel.credentialId, adapter.oauth);
+  const cred = await loadCredential(cfg.activeModel.credentialId, adapter);
 
   const context = await gatherContext(opts);
   const prompt = `${context}${opts.hint ? `\n\nThe maintainer added: ${opts.hint}` : ""}

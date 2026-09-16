@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { errorSummary } from "@croft/core";
 import { redirect, route } from "../../../../http";
 import { startRun } from "../../../../runs";
 
@@ -16,7 +17,7 @@ export const POST = route(async (request) => {
     if (!result.started) return redirect(`/new?error=${encodeURIComponent(result.reason)}`);
   } catch (error) {
     if (!(error instanceof Error)) throw error;
-    return redirect(`/new?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/new?error=${encodeURIComponent(errorSummary(error))}`);
   }
   return redirect("/runs");
 });

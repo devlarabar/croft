@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { getConfig } from "@croft/core/config";
+import { errorSummary } from "@croft/core/redact";
 import { loadCredential } from "@croft/core/llm/credential";
 import { getProvider } from "@croft/core/llm/registry";
 import { executeTestRun } from "./testrun.js";
@@ -26,7 +27,7 @@ async function main() {
   const cfg = await getConfig();
   if (!cfg.activeModel) throw new Error("croft has no active model configured — set one in the dashboard");
   const adapter = getProvider(cfg.activeModel.providerId);
-  const cred = await loadCredential(cfg.activeModel.credentialId, adapter.oauth);
+  const cred = await loadCredential(cfg.activeModel.credentialId, adapter);
 
   const plan = await readFile(planFile, "utf8");
   const repoContext = contextFile ? await readFile(contextFile, "utf8") : null;
@@ -77,7 +78,8 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err);
-  process.stdout.write(`${JSON.stringify({ type: "error", payload: { message: String((err as Error).stack ?? err) } })}\n`);
+  const message = errorSummary(err);
+  console.error(message);
+  process.stdout.write(`${JSON.stringify({ type: "error", payload: { message } })}\n`);
   process.exitCode = 2;
 });

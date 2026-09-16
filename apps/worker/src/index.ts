@@ -12,6 +12,7 @@ import {
   db,
   decrypt,
   eventWriter,
+  errorSummary,
   extractTestPlan,
   finishRunFlavour,
   getConfig,
@@ -25,7 +26,6 @@ import {
   listPrReviews,
   loadCredential,
   postPrComment,
-  redact,
   replyToReviewComment,
   restrictDiffToFiles,
   PLAN_TRIAGE_SKILL,
@@ -70,7 +70,7 @@ async function main() {
 
   const cfg = await getConfig();
   const adapter = getProvider(run.providerId);
-  const cred = await loadCredential(run.credentialId, adapter.oauth);
+  const cred = await loadCredential(run.credentialId, adapter);
   const pr = await getPr(run.repo, run.prNumber);
   // Plan calls send the whole diff: their tokens belong in the run's ledger too.
   const ask = async (system: string, prompt: string) => {
@@ -255,7 +255,7 @@ async function main() {
 main()
   .then(() => process.exit(0))
   .catch(async (err) => {
-    const details = redact(String((err as Error).stack ?? err));
+    const details = errorSummary(err);
     console.error(details);
     try {
       await setStatus("error", { error: details, finishedAt: new Date() });
@@ -265,7 +265,7 @@ main()
         await createCheckRun(run.repo, pr.head.sha, "failure", "Croft run errored.");
       }
     } catch (statusErr) {
-      console.error("failed to record error status", statusErr);
+      console.error("failed to record error status", errorSummary(statusErr));
     }
     process.exit(1);
   });

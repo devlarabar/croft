@@ -1,3 +1,5 @@
+import { errorSummary } from "@croft/core";
+
 export type RequestHandler<Context = unknown> = (request: Request, context: Context) => Response | Promise<Response>;
 
 export function redirect(location: string): Response {
@@ -6,7 +8,7 @@ export function redirect(location: string): Response {
 }
 
 export function serverError(error: unknown): Response {
-  console.error(error);
+  console.error(errorSummary(error));
   return new Response("Something went wrong. Please try again.", { status: 500 });
 }
 

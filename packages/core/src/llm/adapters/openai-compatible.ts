@@ -85,7 +85,6 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
   async *chat(req: ChatRequest, cred: Credential): AsyncIterable<ChatEvent> {
     const { baseUrl, headers } = this.resolve(await cred.getToken());
     const url = this.chatUrl(baseUrl, req.model);
-    // undici reports every network failure as "fetch failed"; the reason is in cause.
     const res = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json", ...headers },
@@ -110,11 +109,11 @@ export class OpenAiCompatibleAdapter implements ProviderAdapter {
       signal: req.signal,
     }).catch((err: Error) => {
       if (req.signal?.aborted) throw err;
-      throw new LlmTransportError(`${this.id} request to ${url} failed: ${err.cause ?? err.message}`);
+      throw new LlmTransportError(`${this.id} request failed. Please retry.`);
     });
     if (!res.ok || !res.body) {
       throw new LlmTransportError(
-        `${this.id} ${res.status} calling ${url}: ${await res.text()}`,
+        `${this.id} request failed (HTTP ${res.status}).`,
         res.status,
         parseRetryAfter(res.headers.get("retry-after")),
       );

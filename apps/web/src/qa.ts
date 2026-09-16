@@ -79,7 +79,7 @@ export async function answerQuestion(opts: AnswerQuestionOptions): Promise<QaRes
   const cfg = await getConfig();
   if (!cfg.activeModel) throw new Error("No active model configured.");
   const adapter = getProvider(cfg.activeModel.providerId);
-  const cred = await loadCredential(cfg.activeModel.credentialId, adapter.oauth);
+  const cred = await loadCredential(cfg.activeModel.credentialId, adapter);
 
   const [pr, diff, learnings, thread] = await Promise.all([
     getPr(repo, prNumber),

@@ -1,4 +1,4 @@
-import { db, schema } from "@croft/core";
+import { db, errorSummary, schema } from "@croft/core";
 import { z } from "zod";
 import { redirect, route } from "../../../../http";
 import { githubUserSchema } from "../../../../session";
@@ -26,7 +26,7 @@ export const POST = route(async (request) => {
     });
     return redirect("/users?saved=1");
   } catch (error) {
-    console.error("dashboard access update failed", error);
+    console.error("dashboard access update failed", errorSummary(error));
     return redirect("/users?error=1");
   }
 });

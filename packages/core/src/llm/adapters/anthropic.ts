@@ -202,7 +202,7 @@ class AnthropicAdapter implements ProviderAdapter {
     });
     if (!res.ok || !res.body) {
       throw new LlmTransportError(
-        `anthropic ${res.status}: ${await res.text()}`,
+        `anthropic request failed (HTTP ${res.status}).`,
         res.status,
         parseRetryAfter(res.headers.get("retry-after")),
       );

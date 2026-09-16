@@ -1,3 +1,13 @@
+import { LlmTransportError } from "./llm/types.js";
+
+export function errorSummary(error: unknown): string {
+  if (error instanceof LlmTransportError) {
+    const status = Number.isInteger(error.status) ? ` (HTTP ${error.status})` : "";
+    return `Model request failed${status}. Check model access and retry.`;
+  }
+  return "Operation failed. Please retry.";
+}
+
 // Redacts recognizable GitHub tokens and credentials embedded in URLs.
 export function redact(text: string): string {
   return text

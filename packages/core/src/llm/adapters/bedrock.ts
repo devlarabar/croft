@@ -110,9 +110,9 @@ function toAiPrompt(system: string | undefined, messages: ChatMessage[]): Langua
 }
 
 function transportError(error: unknown): Error {
-  if (!APICallError.isInstance(error)) return error instanceof Error ? error : new Error(String(error));
+  if (!APICallError.isInstance(error)) return new Error("Bedrock request failed. Please retry.");
   return new LlmTransportError(
-    `bedrock ${error.statusCode ?? "error"}: ${error.message}`,
+    `bedrock request failed (${error.statusCode ?? "transport error"}).`,
     error.statusCode,
     parseRetryAfter(error.responseHeaders?.["retry-after"] ?? null),
   );
@@ -220,7 +220,7 @@ class BedrockAdapter implements ProviderAdapter {
     } catch (err) {
       if (req.signal?.aborted) throw err;
       const status = (err as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
-      throw new LlmTransportError(`bedrock ${status ?? "error"}: ${(err as Error).message}`, status);
+      throw new LlmTransportError(`bedrock request failed (${status ?? "transport error"}).`, status);
     }
     yield* anthropicChatEvents(chunkEvents(body));
   }

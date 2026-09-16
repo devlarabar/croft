@@ -4,6 +4,7 @@ import {
   addEyesReaction,
   botLogin,
   db,
+  errorSummary,
   getConfig,
   getPr,
   postPrComment,
@@ -130,7 +131,8 @@ export async function handleWebhook(request: Request): Promise<Response> {
       await reply(`Learned, and I'll apply it to future reviews of \`${repo}\`:\n\n> ${learning}`);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      await reply(`Couldn't add that learning: ${error.message}`);
+      console.error("Learning failed", errorSummary(error));
+      await reply("Couldn't add that learning. Please try again.");
     }
   } else {
     const response = await answerQuestion({
