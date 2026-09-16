@@ -5,6 +5,7 @@ import { chromium } from "playwright";
 import { z } from "zod";
 import { uploadArtifact } from "@croft/core/s3";
 import type { AgentTool } from "@croft/core/llm/loop";
+import { makeBrowserInputTools } from "./browser/input.js";
 
 export interface Screenshot {
   name: string;
@@ -49,6 +50,7 @@ export async function openBrowserSession(runId: string, save: SaveArtifact = upl
   const fixtureNames = (await readdir(FIXTURES_DIR)).filter((name) => !name.startsWith("."));
 
   const tools: AgentTool[] = [
+    ...makeBrowserInputTools(page),
     {
       recoveryTool: "browser_snapshot",
       def: {
