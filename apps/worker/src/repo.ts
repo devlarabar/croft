@@ -1,6 +1,5 @@
 import { execFile } from "node:child_process";
-import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { z } from "zod";
 import type { AgentTool } from "@croft/core/llm/loop";
@@ -60,7 +59,7 @@ export function repoTools(dir: string): AgentTool[] {
       def: {
         name: "read_file",
         description:
-          "Read a file from the PR branch checkout, with line numbers. Paths are relative to the repository root.",
+          "Read a committed file from the PR branch, with line numbers. Paths are relative to the repository root. Symlinks return their target path, not the target's contents.",
         inputSchema: {
           type: "object",
           properties: {
@@ -76,7 +75,7 @@ export function repoTools(dir: string): AgentTool[] {
         const { path, startLine, endLine } = readFileArgs.parse(args);
         const full = inside(path);
         if (!full) return [{ type: "text", text: `Refused: ${path} is outside the repository.` }];
-        const lines = (await readFile(full, "utf8")).split("\n");
+        const lines = (await git(dir, ["cat-file", "blob", `HEAD:${relative(dir, full)}`])).split("\n");
         const from = startLine ?? 1;
         const numbered = lines
           .slice(from - 1, endLine ?? lines.length)
